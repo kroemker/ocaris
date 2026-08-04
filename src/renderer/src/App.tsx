@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import TopBar from './components/TopBar'
 import FilterChips from './components/FilterChips'
 import ModList from './components/ModList'
+import EmptyState from './components/EmptyState'
 import StatusLine from './components/StatusLine'
 import SettingsDialog, { type SettingsPane } from './components/settings/SettingsDialog'
 import {
@@ -43,11 +44,21 @@ function App(): React.JSX.Element {
     return window.api.catalog.stats().then((stats) => setRefreshedAt(stats.refreshedAt))
   }, [])
 
+  const promptedForRom = useRef(false)
+
   useEffect(() => {
     void loadMods()
     void loadStats()
-    void window.api.rom.getConfig().then(setRomConfig)
     void window.api.emulator.list().then(setEmulators)
+    void window.api.rom.getConfig().then((config) => {
+      setRomConfig(config)
+      // First run: nothing in the library is usable without a ROM, so open
+      // settings on that pane rather than leaving the user to find the gear.
+      if (!config.romPath && !promptedForRom.current) {
+        promptedForRom.current = true
+        setSettings({ open: true, pane: 'rom' })
+      }
+    })
   }, [loadMods, loadStats])
 
   const anyDownloading = mods.some((mod) => mod.status.state === 'downloading')
@@ -57,6 +68,7 @@ function App(): React.JSX.Element {
     return () => clearInterval(interval)
   }, [anyDownloading, loadMods])
 
+  const romConfigured = Boolean(romConfig?.romPath)
   const view = useMemo(() => ({ filter, query, sort }), [filter, query, sort])
   const visible = useMemo(() => visibleMods(mods, view), [mods, view])
   const counts = useMemo(() => countsByFilter(mods, query), [mods, query])
@@ -131,17 +143,78 @@ function App(): React.JSX.Element {
     setSettings({ open: true, pane })
   }
 
+  /**
+   * A missing ROM blocks everything, so it gets the whole view. A missing
+   * emulator does not: mods still browse and download, and only Play is
+   * disabled (see actionsFor).
+   */
+  function body(): React.JSX.Element {
+    if (romConfig && !romConfig.romPath) {
+      return (
+        <EmptyState
+          title="Add your Ocarina of Time ROM"
+          body="Ocaris patches a copy of your own ROM to install mods. Nothing else works until it knows where that file is."
+          action={{ label: 'Choose ROM file…', onClick: () => openSettings('rom') }}
+        />
+      )
+    }
+
+    if (mods.length === 0) {
+      return (
+        <EmptyState
+          title="No mods cached yet"
+          body="Fetch the catalog to see what's available. The list is stored locally, so this only needs an internet connection when you refresh."
+          action={{
+            label: refreshing ? 'Refreshing…' : 'Refresh catalog',
+            onClick: () => void handleRefresh()
+          }}
+        />
+      )
+    }
+
+    if (visible.length === 0) {
+      return (
+        <EmptyState
+          title="No mods match"
+          body={
+            query.trim()
+              ? `Nothing in this filter matches “${query.trim()}”.`
+              : 'Nothing in the catalog is in this state right now.'
+          }
+          action={{
+            label: 'Clear filters',
+            onClick: () => {
+              setFilter('all')
+              setQuery('')
+            }
+          }}
+        />
+      )
+    }
+
+    return (
+      <ModList
+        mods={visible}
+        busyIds={busyIds}
+        context={{ hasEmulator: emulators.length > 0 }}
+        onAction={(action, mod) => void handleAction(action, mod)}
+      />
+    )
+  }
+
   return (
     <div className="app">
       <TopBar>
         <div className="spacer" />
-        <input
-          className="search"
-          value={query}
-          placeholder="Search mods or authors…"
-          aria-label="Search mods"
-          onChange={(e) => setQuery(e.target.value)}
-        />
+        {romConfigured && mods.length > 0 && (
+          <input
+            className="search"
+            value={query}
+            placeholder="Search mods or authors…"
+            aria-label="Search mods"
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        )}
         <button className="btn" onClick={() => void handleRefresh()} disabled={refreshing}>
           {refreshing ? 'Refreshing…' : 'Refresh catalog'}
         </button>
@@ -160,20 +233,18 @@ function App(): React.JSX.Element {
         </div>
       )}
 
-      <FilterChips
-        active={filter}
-        counts={counts}
-        sort={sort}
-        onFilterChange={setFilter}
-        onSortChange={setSort}
-      />
+      {/* Both are noise while the ROM empty state owns the view. */}
+      {romConfigured && mods.length > 0 && (
+        <FilterChips
+          active={filter}
+          counts={counts}
+          sort={sort}
+          onFilterChange={setFilter}
+          onSortChange={setSort}
+        />
+      )}
 
-      <ModList
-        mods={visible}
-        busyIds={busyIds}
-        context={{ hasEmulator: emulators.length > 0 }}
-        onAction={(action, mod) => void handleAction(action, mod)}
-      />
+      {body()}
 
       <StatusLine
         visibleCount={visible.length}
