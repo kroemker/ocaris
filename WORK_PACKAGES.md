@@ -277,6 +277,14 @@ Legend: **Depends on** lists hard prerequisites. **Acceptance criteria** are the
 - A first-time user can go from a fresh install to a playing a mod using only in-app guidance, no external docs.
 - All error states defined in earlier packages have a corresponding UI treatment (not just console logs).
 
+**Status:** delivered by the UI rebuild in [docs/ui-implementation-plan.md](./docs/ui-implementation-plan.md) — a media-row library view with state filters, setup moved into a settings dialog, a light/dark theme, first-run and empty states, and a dismissible error banner. Two scope changes worth noting: the browse/library split became one list with filter chips rather than two views, and a missing emulator no longer hides the catalog (only Play is disabled), since browsing and downloading don't need one.
+
+Deferred from that work, and still open:
+
+- Configurable patched-ROM output directory (the Storage pane is read-only; `src/main/storage/paths.ts` is the single place to change).
+- A pushed `mod:progress` event instead of the 750ms `catalog:list` poll — only worth it if several simultaneous downloads make the poll feel heavy.
+- A "recently added" sort, now that `mods.first_seen_at` exists to back it.
+
 ---
 
 ## WP12 — Packaging & Distribution
