@@ -1,9 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import {
   IpcChannel,
+  type CatalogRefreshResult,
   type Emulator,
   type EmulatorInput,
   type EmulatorSaveResult,
+  type ModSummary,
   type RomConfig,
   type RomConfirmRequest,
   type RomVerification
@@ -31,6 +33,12 @@ const api = {
       ipcRenderer.invoke(IpcChannel.EmulatorSetDefault, id),
     launch: (emulatorId: number, romPath: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannel.EmulatorLaunch, emulatorId, romPath)
+  },
+  catalog: {
+    refresh: (): Promise<CatalogRefreshResult> => ipcRenderer.invoke(IpcChannel.CatalogRefresh),
+    list: (): Promise<ModSummary[]> => ipcRenderer.invoke(IpcChannel.CatalogList),
+    install: (modId: string): Promise<ModSummary> =>
+      ipcRenderer.invoke(IpcChannel.ModInstall, modId)
   }
 }
 

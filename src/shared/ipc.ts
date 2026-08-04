@@ -16,7 +16,10 @@ export const IpcChannel = {
   EmulatorUpdate: 'emulator:update',
   EmulatorDelete: 'emulator:delete',
   EmulatorSetDefault: 'emulator:set-default',
-  EmulatorLaunch: 'emulator:launch'
+  EmulatorLaunch: 'emulator:launch',
+  CatalogRefresh: 'catalog:refresh',
+  CatalogList: 'catalog:list',
+  ModInstall: 'mod:install'
 } as const
 
 export interface RomVerification {
@@ -63,4 +66,32 @@ export interface EmulatorValidationError {
 export interface EmulatorSaveResult {
   emulator: Emulator | null
   errors: EmulatorValidationError[]
+}
+
+export type ModStatusState = 'not_downloaded' | 'downloading' | 'ready' | 'error'
+
+export interface ModStatusSummary {
+  state: ModStatusState
+  patchedRomPath: string | null
+  downloadProgressBytes: number | null
+  downloadTotalBytes: number | null
+  errorMessage: string | null
+}
+
+export interface ModSummary {
+  id: string
+  source: string
+  name: string
+  author: string | null
+  description: string | null
+  thumbnailUrl: string | null
+  downloadLink: string | null
+  completionStatus: string | null
+  status: ModStatusSummary
+}
+
+export interface CatalogRefreshResult {
+  source: string
+  count: number
+  refreshedAt: number
 }

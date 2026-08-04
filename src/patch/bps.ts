@@ -82,13 +82,28 @@ class PatchReader {
   }
 }
 
-export function applyBpsPatch(source: Buffer, patch: Buffer): Buffer {
+function checkMagicAndSize(patch: Buffer): void {
   if (patch.length < MAGIC.length + FOOTER_SIZE) {
     throw new BpsCorruptError('Patch file is too small to be a valid BPS patch.')
   }
   if (patch.subarray(0, 4).toString('ascii') !== MAGIC) {
     throw new BpsCorruptError('Not a BPS patch (missing "BPS1" magic).')
   }
+}
+
+/**
+ * Reads the source-ROM CRC32 a BPS patch declares it expects, without fully
+ * parsing or applying it. Used to pick the right patch out of an archive
+ * containing several (see docs/catalog-source-spec.md) - cheaper than
+ * decoding every candidate's action stream just to find out it's wrong.
+ */
+export function readExpectedSourceCrc(patch: Buffer): number {
+  checkMagicAndSize(patch)
+  return patch.readUInt32LE(patch.length - FOOTER_SIZE)
+}
+
+export function applyBpsPatch(source: Buffer, patch: Buffer): Buffer {
+  checkMagicAndSize(patch)
 
   const footerStart = patch.length - FOOTER_SIZE
   const expectedSourceCrc = patch.readUInt32LE(footerStart)

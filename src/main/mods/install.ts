@@ -4,11 +4,12 @@ import type Database from 'better-sqlite3'
 import { applyBpsPatch } from '../../patch/bps'
 import { downloadFile, type DownloadProgress } from '../download/downloadFile'
 import { setModStatus, type ModStatus } from '../db/mods'
+import { classifyDownloadLink, findMatchingPatchInZip } from './resolvePatch'
 
 export interface InstallModInput {
   db: Database.Database
   modId: string
-  patchUrl: string
+  downloadUrl: string
   romPath: string
   patchCacheDir: string
   patchedRomDir: string
@@ -21,14 +22,25 @@ function safeFileStem(id: string): string {
 }
 
 /**
- * Downloads a mod's patch file and applies it to the verified base ROM,
+ * Downloads a mod's patch (a bare .bps, or a .zip containing one or more -
+ * see docs/catalog-source-spec.md) and applies it to the verified base ROM,
  * updating mod_status through the whole lifecycle. Never rejects - any
- * failure (download or patch) resolves to an 'error' status with a
- * descriptive message rather than throwing, so callers don't need a
- * try/catch to handle the expected failure modes.
+ * failure (unsupported download type, download error, or patch mismatch)
+ * resolves to an 'error' status with a descriptive message rather than
+ * throwing, so callers don't need a try/catch to handle the expected
+ * failure modes.
  */
 export async function installMod(input: InstallModInput): Promise<ModStatus> {
-  const { db, modId, patchUrl, romPath, patchCacheDir, patchedRomDir } = input
+  const { db, modId, downloadUrl, romPath, patchCacheDir, patchedRomDir } = input
+
+  const kind = classifyDownloadLink(downloadUrl)
+  if (kind === 'unsupported') {
+    return setModStatus(db, modId, {
+      state: 'error',
+      errorMessage:
+        'This mod is not automatically installable - download it manually from the mod page.'
+    })
+  }
 
   setModStatus(db, modId, {
     state: 'downloading',
@@ -38,6 +50,7 @@ export async function installMod(input: InstallModInput): Promise<ModStatus> {
   })
 
   const stem = safeFileStem(modId)
+  const downloadPath = join(patchCacheDir, kind === 'archive' ? `${stem}.zip` : `${stem}.bps`)
   const patchFilePath = join(patchCacheDir, `${stem}.bps`)
   const patchedRomPath = join(patchedRomDir, `${stem}.z64`)
 
@@ -45,7 +58,7 @@ export async function installMod(input: InstallModInput): Promise<ModStatus> {
     await mkdir(patchCacheDir, { recursive: true })
     await mkdir(patchedRomDir, { recursive: true })
 
-    await downloadFile(patchUrl, patchFilePath, {
+    await downloadFile(downloadUrl, downloadPath, {
       signal: input.signal,
       onProgress: (progress) => {
         setModStatus(db, modId, {
@@ -56,7 +69,17 @@ export async function installMod(input: InstallModInput): Promise<ModStatus> {
       }
     })
 
-    const [source, patch] = await Promise.all([readFile(romPath), readFile(patchFilePath)])
+    const source = await readFile(romPath)
+
+    let patch: Buffer
+    if (kind === 'archive') {
+      const zipBuffer = await readFile(downloadPath)
+      patch = findMatchingPatchInZip(zipBuffer, source)
+      await writeFile(patchFilePath, patch)
+    } else {
+      patch = await readFile(downloadPath)
+    }
+
     const patchedRom = applyBpsPatch(source, patch)
     await writeFile(patchedRomPath, patchedRom)
 

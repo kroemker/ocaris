@@ -28,6 +28,7 @@ src/main/ipc        ipcMain handlers, one module per feature area
 src/main/rom        ROM header verification (N64 header CRC1/CRC2 check)
 src/main/emulator   Emulator executable-path validation
 src/main/download   Generic HTTP download engine (streaming, progress, cancellation)
+src/main/catalog    Pluggable ModCatalogSource interface + hylianmodding.com adapter
 src/main/mods       Mod install pipeline (download patch -> apply -> ready)
 src/preload         contextBridge-exposed, typed API surface for the renderer
 src/renderer        React app
@@ -53,13 +54,19 @@ This module has no Electron dependency and only deals with in-memory buffers; th
 
 ## Data layer
 
-SQLite schema covers four entities: `app_config` (verified ROM), `emulators`, `mods` (catalog cache), and `mod_status` (per-mod download/patch state). `mods`/`mod_status` are split so a catalog refresh (`upsertMods`) can update a mod's metadata without ever resetting its in-progress or completed download - only mods the app has never seen before get a fresh `not_downloaded` status row. No catalog source is wired up yet (that's WP5/WP6); this just lands the schema and DAO (`src/main/db/mods.ts`) ahead of it.
+SQLite schema covers four entities: `app_config` (verified ROM), `emulators`, `mods` (catalog cache), and `mod_status` (per-mod download/patch state). `mods`/`mod_status` are split so a catalog refresh (`upsertMods`) can update a mod's metadata without ever resetting its in-progress or completed download - only mods the app has never seen before get a fresh `not_downloaded` status row.
+
+## Catalog source
+
+`src/main/catalog/types.ts` defines `ModCatalogSource` (`fetchCatalog(): Promise<ModRecord[]>`) so the backing source is swappable - see `docs/catalog-source-spec.md` for why. `HylianModdingCatalogSource` (`src/main/catalog/hylianModdingSource.ts`) is the only implementation so far: hylianmodding.com/mods turns out to be a static, same-origin JSON catalog rather than a bespoke API (`/mods/index.json` + `/mods/<id>/mod.json`), fetched with a small concurrency cap rather than ~140 simultaneous requests. Entries are filtered to `supported_games === "OoT"` (the site also lists Majora's Mask mods) and normalized into `ModRecord`, stashing the raw `download_link`/thumbnail/completion-status in the free-form `metadata` column.
+
+Verified against the real live site (not just recorded fixtures) during development: 41 real OoT mods fetched correctly, MM entries filtered out, and both same-origin and external (GitHub Releases) download links resolved as expected. The test suite itself only hits a local HTTP server serving fixtures adapted from that real data, though - no live network dependency in CI or for other contributors.
 
 ## Download + install pipeline
 
-`src/main/download/downloadFile.ts` streams an arbitrary URL to disk (temp `.part` file, renamed on success) with progress reporting and `AbortSignal` cancellation; a failed or cancelled download never leaves a file at the destination path. `src/main/mods/install.ts` chains that with the BPS patch engine: download the patch, apply it against the verified base ROM, write the patched ROM, and update `mod_status` throughout (`downloading` → `ready`, or `error` with a message). `installMod()` never rejects - any failure resolves to an `error` status instead of throwing, since both a broken download and a ROM/patch mismatch are expected, user-facing outcomes rather than exceptional ones.
+`src/main/download/downloadFile.ts` streams an arbitrary URL to disk (temp `.part` file, renamed on success) with progress reporting and `AbortSignal` cancellation; a failed or cancelled download never leaves a file at the destination path.
 
-Both are catalog-source-agnostic - they take a plain URL, not a source-specific object - so they don't depend on WP5/WP6 (the real catalog adapter, currently blocked on this environment's network access to `hylianmodding.com`) being done first.
+`src/main/mods/install.ts` chains that with the BPS patch engine, and it turns out that's not as simple as "download the patch and apply it" - see `docs/catalog-source-spec.md`. A mod's `download_link` might be a bare `.bps`, or a `.zip` containing *several* `.bps` files for different ROM regions/versions with no metadata saying which is which, or something Ocaris can't act on at all (a `.7z`, or a link to a GitHub Releases page rather than a file). `installMod()` classifies the link first (`src/main/mods/resolvePatch.ts`): unsupported types resolve straight to an `error` status ("download manually") without touching the network; a `.zip` gets downloaded and every `.bps` inside it is checked against the verified ROM's checksum until one matches (`findMatchingPatchInZip` - reuses the same embedded-CRC check `src/patch/bps.ts` already does, rather than trying to parse filenames). Either way, `mod_status` is updated throughout (`downloading` → `ready`, or `error` with a message), and `installMod()` never rejects - a bad download or a ROM/patch mismatch are expected, user-facing outcomes that resolve to an `error` status, not exceptions.
 
 ## Launching a mod
 

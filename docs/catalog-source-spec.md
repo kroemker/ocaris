@@ -10,11 +10,11 @@ Investigated by fetching the live site through this environment's outbound proxy
 
 All same-origin, `GET`, no auth, no pagination, plain JSON:
 
-| Purpose | URL pattern |
-|---|---|
-| Mod ID list | `GET /mods/index.json` → `{"mods": ["id1", "id2", ...]}` |
-| Mod detail | `GET /mods/<id>/mod.json` |
-| Tool ID list (out of scope) | `GET /tools/index.json` (same shape, different category) |
+| Purpose                            | URL pattern                                                                     |
+| ---------------------------------- | ------------------------------------------------------------------------------- |
+| Mod ID list                        | `GET /mods/index.json` → `{"mods": ["id1", "id2", ...]}`                        |
+| Mod detail                         | `GET /mods/<id>/mod.json`                                                       |
+| Tool ID list (out of scope)        | `GET /tools/index.json` (same shape, different category)                        |
 | Competition entries (out of scope) | `GET /competitions/<comp>/index.json`, `GET /competitions/<comp>/<id>/mod.json` |
 
 `/mods/index.json` currently lists **~140 entries** (sampled; not exhaustively counted). No `robots.txt` exists and no terms-of-service/privacy page is defined in the app's routes (confirmed by grepping the bundle for "Terms of"/"privacy" - nothing found, and `/terms`, `/privacy`, `/tos`, `/legal` all just fall through to the SPA shell). No explicit usage policy to violate or honor beyond ordinary courtesy (identify our client, don't hammer it, cache locally rather than re-fetching per mod - which was already the plan per the brief).
@@ -50,7 +50,7 @@ All same-origin, `GET`, no auth, no pagination, plain JSON:
 
 **2. Zips can contain multiple `.bps` files for different ROM versions/regions, with no structured metadata saying which is which.** Downloaded `zelda64_dawn_and_dusk`'s zip and got six patches: `DawnDusk_v2_{J,U}_{1.0,1.1,1.2}.bps`. The filenames happen to encode region/version here, but that's a per-author convention, not something `mod.json` declares - can't rely on parsing filenames in general.
 
-  **Recommended handling:** don't parse filenames at all. BPS patches embed their own expected source CRC32 (this is exactly what `src/patch/bps.ts`'s `BpsSourceMismatchError` already checks). Given a zip with N `.bps` files, try each against the user's verified ROM and use whichever one's source CRC matches. Zero filename-parsing, and it's *more* correct than trusting naming conventions - directly reuses WP3 as-built.
+**Recommended handling:** don't parse filenames at all. BPS patches embed their own expected source CRC32 (this is exactly what `src/patch/bps.ts`'s `BpsSourceMismatchError` already checks). Given a zip with N `.bps` files, try each against the user's verified ROM and use whichever one's source CRC matches. Zero filename-parsing, and it's _more_ correct than trusting naming conventions - directly reuses WP3 as-built.
 
 **3. Archive format needs handling, not just "download the file."** `.zip` is very common and there's no built-in Node support for it (need a dependency - `adm-zip` or `yauzl`). `.7z` shows up too and has no good pure-JS story in Node. Given the sample size, treating `.7z` and external-link (GitHub Releases, etc.) mods as **"browse only, download manually"** rather than blocking WP6 on building a 7-Zip extractor or a GitHub-releases-asset resolver is the pragmatic call - full automation for those is a bigger, separate piece of work if it turns out to matter for enough of the catalog.
 

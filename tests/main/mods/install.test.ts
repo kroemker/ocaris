@@ -1,3 +1,4 @@
+import AdmZip from 'adm-zip'
 import { createServer, type RequestListener, type Server } from 'node:http'
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -88,7 +89,7 @@ function createDbWithMod(): { db: Database.Database; modId: string } {
 }
 
 describe('installMod', () => {
-  it('downloads and applies a patch, producing a ready mod with an unchanged source ROM', async () => {
+  it('downloads and applies a bare .bps patch, producing a ready mod with an unchanged source ROM', async () => {
     const source = Buffer.from('AAAAABBBBBCCCCC', 'ascii')
     const target = Buffer.from('patched romantic content here', 'ascii')
     const patch = buildBpsPatch(source, target)
@@ -108,7 +109,7 @@ describe('installMod', () => {
     const status = await installMod({
       db,
       modId,
-      patchUrl: `${baseUrl}/patch.bps`,
+      downloadUrl: `${baseUrl}/patch.bps`,
       romPath,
       patchCacheDir: join(dir, 'patches'),
       patchedRomDir: join(dir, 'roms'),
@@ -125,6 +126,63 @@ describe('installMod', () => {
 
     const persisted = getModWithStatus(db, modId)
     expect(persisted?.status.state).toBe('ready')
+
+    db.close()
+  })
+
+  it('downloads a .zip, picks the matching patch by embedded source CRC, and applies it', async () => {
+    const source = Buffer.from('AAAAABBBBBCCCCC', 'ascii')
+    const otherSource = Buffer.from('ZZZZZBBBBBCCCCC', 'ascii')
+    const target = Buffer.from('patched from inside a zip', 'ascii')
+    const otherTarget = Buffer.from('wrong-version target', 'ascii')
+
+    const zip = new AdmZip()
+    zip.addFile('game_U_1.1.bps', buildBpsPatch(otherSource, otherTarget))
+    zip.addFile('game_U_1.0.bps', buildBpsPatch(source, target))
+    const zipBuffer = zip.toBuffer()
+
+    const romPath = join(dir, 'source.z64')
+    writeFileSync(romPath, source)
+
+    const baseUrl = await startServer((_req, res) => {
+      res.writeHead(200, { 'content-length': String(zipBuffer.length) })
+      res.end(zipBuffer)
+    })
+
+    const { db, modId } = createDbWithMod()
+
+    const status = await installMod({
+      db,
+      modId,
+      downloadUrl: `${baseUrl}/patches.zip`,
+      romPath,
+      patchCacheDir: join(dir, 'patches'),
+      patchedRomDir: join(dir, 'roms')
+    })
+
+    expect(status.state).toBe('ready')
+    expect(readFileSync(status.patchedRomPath as string)).toEqual(target)
+
+    db.close()
+  })
+
+  it('resolves to an error status immediately for an unsupported download link, without touching the network', async () => {
+    const romPath = join(dir, 'source.z64')
+    writeFileSync(romPath, Buffer.from('some rom bytes'))
+
+    const { db, modId } = createDbWithMod()
+
+    const status = await installMod({
+      db,
+      modId,
+      downloadUrl: 'https://github.com/someone/somemod/releases',
+      romPath,
+      patchCacheDir: join(dir, 'patches'),
+      patchedRomDir: join(dir, 'roms')
+    })
+
+    expect(status.state).toBe('error')
+    expect(status.errorMessage).toMatch(/not automatically installable/i)
 
     db.close()
   })
@@ -148,7 +206,7 @@ describe('installMod', () => {
     const status = await installMod({
       db,
       modId,
-      patchUrl: `${baseUrl}/patch.bps`,
+      downloadUrl: `${baseUrl}/patch.bps`,
       romPath,
       patchCacheDir: join(dir, 'patches'),
       patchedRomDir: join(dir, 'roms')
@@ -177,7 +235,7 @@ describe('installMod', () => {
     const status = await installMod({
       db,
       modId,
-      patchUrl: `${baseUrl}/missing.bps`,
+      downloadUrl: `${baseUrl}/missing.bps`,
       romPath,
       patchCacheDir: join(dir, 'patches'),
       patchedRomDir: join(dir, 'roms')

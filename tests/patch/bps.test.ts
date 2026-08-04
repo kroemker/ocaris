@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { applyBpsPatch, BpsCorruptError, BpsSourceMismatchError } from '../../src/patch/bps'
+import {
+  applyBpsPatch,
+  BpsCorruptError,
+  BpsSourceMismatchError,
+  readExpectedSourceCrc
+} from '../../src/patch/bps'
 import { crc32 } from '../../src/patch/crc32'
 
 // Minimal BPS encoder, used only to build synthetic fixtures for these
@@ -131,5 +136,19 @@ describe('applyBpsPatch', () => {
     applyBpsPatch(source, patch)
 
     expect(Buffer.compare(source, sourceCopy)).toBe(0)
+  })
+})
+
+describe('readExpectedSourceCrc', () => {
+  it('reads the source CRC without applying the patch', () => {
+    const source = Buffer.from('AAAAABBBBBCCCCC', 'ascii')
+    const target = Buffer.from('some target data', 'ascii')
+    const patch = buildBpsPatch(source, target, actionTargetRead([...target]))
+
+    expect(readExpectedSourceCrc(patch)).toBe(crc32(source))
+  })
+
+  it('throws BpsCorruptError for a non-BPS buffer', () => {
+    expect(() => readExpectedSourceCrc(Buffer.alloc(20))).toThrow(BpsCorruptError)
   })
 })
