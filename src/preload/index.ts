@@ -3,6 +3,7 @@ import {
   IpcChannel,
   type AppSettings,
   type CatalogRefreshResult,
+  type CatalogStats,
   type Emulator,
   type EmulatorInput,
   type EmulatorSaveResult,
@@ -10,6 +11,7 @@ import {
   type RomConfig,
   type RomConfirmRequest,
   type RomVerification,
+  type StorageUsage,
   type ThemeSource
 } from '@shared/ipc'
 
@@ -44,8 +46,13 @@ const api = {
   catalog: {
     refresh: (): Promise<CatalogRefreshResult> => ipcRenderer.invoke(IpcChannel.CatalogRefresh),
     list: (): Promise<ModSummary[]> => ipcRenderer.invoke(IpcChannel.CatalogList),
+    stats: (): Promise<CatalogStats> => ipcRenderer.invoke(IpcChannel.CatalogStats),
     install: (modId: string): Promise<ModSummary> =>
       ipcRenderer.invoke(IpcChannel.ModInstall, modId)
+  },
+  storage: {
+    usage: (): Promise<StorageUsage> => ipcRenderer.invoke(IpcChannel.StorageUsage),
+    openFolder: (): Promise<void> => ipcRenderer.invoke(IpcChannel.StorageOpenFolder)
   },
   shell: {
     openExternal: (url: string): Promise<void> =>

@@ -1,9 +1,19 @@
-import { app, ipcMain } from 'electron'
-import { join } from 'node:path'
-import { IpcChannel, type CatalogRefreshResult, type ModSummary } from '@shared/ipc'
+import { ipcMain } from 'electron'
+import {
+  IpcChannel,
+  type CatalogRefreshResult,
+  type CatalogStats,
+  type ModSummary
+} from '@shared/ipc'
 import { getDatabase } from '../db'
 import { getAppConfig } from '../db/appConfig'
-import { getModWithStatus, listModsWithStatus, type ModWithStatus } from '../db/mods'
+import {
+  getCatalogStats,
+  getModWithStatus,
+  listModsWithStatus,
+  type ModWithStatus
+} from '../db/mods'
+import { getPatchCacheDir, getPatchedRomDir } from '../storage/paths'
 import { HylianModdingCatalogSource } from '../catalog/hylianModdingSource'
 import { refreshCatalog } from '../catalog/refresh'
 import { installMod } from '../mods/install'
@@ -46,6 +56,10 @@ export function registerCatalogIpcHandlers(): void {
     return listModsWithStatus(getDatabase()).map(toModSummary)
   })
 
+  ipcMain.handle(IpcChannel.CatalogStats, (): CatalogStats => {
+    return getCatalogStats(getDatabase())
+  })
+
   ipcMain.handle(IpcChannel.ModInstall, async (_event, modId: string): Promise<ModSummary> => {
     const db = getDatabase()
     const mod = getModWithStatus(db, modId)
@@ -68,8 +82,8 @@ export function registerCatalogIpcHandlers(): void {
       modId,
       downloadUrl: metadata.downloadLink,
       romPath: romConfig.romPath,
-      patchCacheDir: join(app.getPath('userData'), 'patches'),
-      patchedRomDir: join(app.getPath('userData'), 'roms')
+      patchCacheDir: getPatchCacheDir(db),
+      patchedRomDir: getPatchedRomDir(db)
     })
 
     const updated = getModWithStatus(db, modId)

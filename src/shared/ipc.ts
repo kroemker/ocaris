@@ -27,12 +27,27 @@ export const IpcChannel = {
   EmulatorLaunch: 'emulator:launch',
   CatalogRefresh: 'catalog:refresh',
   CatalogList: 'catalog:list',
+  CatalogStats: 'catalog:stats',
   ModInstall: 'mod:install',
+  StorageUsage: 'storage:usage',
+  StorageOpenFolder: 'storage:open-folder',
   ShellOpenExternal: 'shell:open-external'
 } as const
 
 export interface AppSettings {
   theme: ThemeSource
+  appVersion: string
+}
+
+export interface CatalogStats {
+  count: number
+  refreshedAt: number | null
+}
+
+export interface StorageUsage {
+  patchedRomDir: string
+  fileCount: number
+  totalBytes: number
 }
 
 export interface RomVerification {

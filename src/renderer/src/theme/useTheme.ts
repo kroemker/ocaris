@@ -20,7 +20,7 @@ function applyToDocument(theme: ResolvedTheme): void {
   document.documentElement.dataset.theme = theme
 }
 
-export interface UseThemeResult {
+export interface ThemeState {
   /** What the user chose - may be 'system'. */
   pref: ThemeSource
   /** What that currently renders as. */
@@ -28,7 +28,11 @@ export interface UseThemeResult {
   setPref: (next: ThemeSource) => Promise<void>
 }
 
-export function useTheme(): UseThemeResult {
+/**
+ * Owns the theme for the whole app. Call this once, in the provider - two
+ * instances would each hold their own preference and fight over data-theme.
+ */
+export function useThemeState(): ThemeState {
   const [pref, setPrefState] = useState<ThemeSource>('system')
   const [resolved, setResolved] = useState<ResolvedTheme>(() => resolve('system'))
 

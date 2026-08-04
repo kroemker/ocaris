@@ -6,11 +6,11 @@ interface PendingSelection {
   verification: RomVerification
 }
 
-interface RomSetupProps {
+interface RomPaneProps {
   onConfigChange?: (config: RomConfig) => void
 }
 
-function RomSetup({ onConfigChange }: RomSetupProps): React.JSX.Element {
+function RomPane({ onConfigChange }: RomPaneProps): React.JSX.Element {
   const [config, setConfig] = useState<RomConfig | null>(null)
   const [pending, setPending] = useState<PendingSelection | null>(null)
   const [busy, setBusy] = useState(false)
@@ -46,6 +46,7 @@ function RomSetup({ onConfigChange }: RomSetupProps): React.JSX.Element {
         applyConfig(updated)
         setPending(null)
       } else {
+        // A CRC mismatch is a warning, not a block - the user gets to decide.
         setPending({ path, verification })
       }
     } catch (err) {
@@ -75,42 +76,64 @@ function RomSetup({ onConfigChange }: RomSetupProps): React.JSX.Element {
   }
 
   return (
-    <section>
-      <h2>Base ROM</h2>
+    <>
+      <h3 className="sec-title">ROM</h3>
 
-      {config?.romPath ? (
-        <p>
-          <strong>{config.romVerified ? 'Verified' : 'Using unverified override'}:</strong>{' '}
-          {config.romPath}
-          {config.romVariant && ` (${config.romVariant})`}
-        </p>
-      ) : (
-        <p>No ROM configured yet.</p>
-      )}
+      <div className="field">
+        <label htmlFor="rom-path">ROM file — Ocarina of Time 1.0 (U)</label>
+        <div className="ctl">
+          <input
+            id="rom-path"
+            readOnly
+            value={config?.romPath ?? ''}
+            placeholder="No ROM configured yet"
+          />
+          <button className="btn" onClick={() => void handleSelectFile()} disabled={busy}>
+            Browse…
+          </button>
+        </div>
 
-      <button onClick={() => void handleSelectFile()} disabled={busy}>
-        {config?.romPath ? 'Select a different ROM' : 'Select ROM File'}
-      </button>
+        {config?.romPath && (
+          <div className="hint">
+            {config.romVerified ? (
+              <span className="pill ok">✓ Header CRC verified</span>
+            ) : (
+              <span className="pill warn">Unverified — confirmed by you</span>
+            )}
+            {config.romVariant && <span>{config.romVariant}</span>}
+          </div>
+        )}
+      </div>
 
       {pending && (
-        <div role="alert">
-          <p>
-            <strong>Header CRC mismatch.</strong> This file's header CRC (
-            {pending.verification.headerCrcHex}) doesn't match any known-good OoT 1.0 (U) pattern.
-            It may be a different ROM, a different version/region, or a bad dump.
+        <div className="field" role="alert">
+          <p className="hint err">
+            <strong>Header CRC mismatch.</strong> This file&apos;s header CRC (
+            {pending.verification.headerCrcHex}) doesn&apos;t match any known-good OoT 1.0 (U)
+            pattern. It may be a different game, a different version or region, or a bad dump.
           </p>
-          <button onClick={() => void handleUseAnyway()} disabled={busy}>
-            Use anyway
-          </button>
-          <button onClick={() => setPending(null)} disabled={busy}>
-            Choose a different file
-          </button>
+          <div className="ctl">
+            <button className="btn" onClick={() => void handleUseAnyway()} disabled={busy}>
+              Use anyway
+            </button>
+            <button className="btn ghost" onClick={() => setPending(null)} disabled={busy}>
+              Choose a different file
+            </button>
+          </div>
         </div>
       )}
 
-      {error && <p role="alert">Error: {error}</p>}
-    </section>
+      {error && (
+        <p className="hint err" role="alert">
+          {error}
+        </p>
+      )}
+
+      <p className="hint">
+        Ocaris never modifies this file — patched copies are written to the output folder.
+      </p>
+    </>
   )
 }
 
-export default RomSetup
+export default RomPane

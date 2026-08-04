@@ -140,6 +140,24 @@ export function upsertMods(db: Database.Database, records: ModRecord[]): void {
   upsertAll(records)
 }
 
+export interface CatalogStats {
+  count: number
+  /**
+   * When the catalog was last refreshed. Every refresh rewrites fetched_at on
+   * every row it saw, so the maximum is the last refresh - no separate
+   * bookkeeping needed.
+   */
+  refreshedAt: number | null
+}
+
+export function getCatalogStats(db: Database.Database): CatalogStats {
+  const row = db
+    .prepare('SELECT COUNT(*) as count, MAX(fetched_at) as refreshed_at FROM mods')
+    .get() as { count: number; refreshed_at: number | null }
+
+  return { count: row.count, refreshedAt: row.refreshed_at }
+}
+
 const LIST_WITH_STATUS_SQL = `
   SELECT mods.*, mod_status.state, mod_status.patch_file_path, mod_status.patched_rom_path,
          mod_status.download_progress_bytes, mod_status.download_total_bytes,
