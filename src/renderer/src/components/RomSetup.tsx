@@ -6,14 +6,26 @@ interface PendingSelection {
   verification: RomVerification
 }
 
-function RomSetup(): React.JSX.Element {
+interface RomSetupProps {
+  onConfigChange?: (config: RomConfig) => void
+}
+
+function RomSetup({ onConfigChange }: RomSetupProps): React.JSX.Element {
   const [config, setConfig] = useState<RomConfig | null>(null)
   const [pending, setPending] = useState<PendingSelection | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  function applyConfig(next: RomConfig): void {
+    setConfig(next)
+    onConfigChange?.(next)
+  }
+
   useEffect(() => {
-    void window.api.rom.getConfig().then(setConfig)
+    void window.api.rom.getConfig().then(applyConfig)
+    // onConfigChange intentionally omitted: this should only run once on
+    // mount, not whenever the parent passes a new callback identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function handleSelectFile(): Promise<void> {
@@ -31,7 +43,7 @@ function RomSetup(): React.JSX.Element {
           variant: verification.variant,
           verified: true
         })
-        setConfig(updated)
+        applyConfig(updated)
         setPending(null)
       } else {
         setPending({ path, verification })
@@ -53,7 +65,7 @@ function RomSetup(): React.JSX.Element {
         variant: pending.verification.variant,
         verified: false
       })
-      setConfig(updated)
+      applyConfig(updated)
       setPending(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))

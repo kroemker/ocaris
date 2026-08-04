@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { Emulator, ModSummary } from '@shared/ipc'
 
+type Filter = 'all' | 'library'
+
 function formatProgress(status: ModSummary['status']): string {
   const { downloadProgressBytes, downloadTotalBytes } = status
   if (downloadTotalBytes) {
@@ -16,9 +18,11 @@ function formatProgress(status: ModSummary['status']): string {
 function CatalogBrowser(): React.JSX.Element {
   const [mods, setMods] = useState<ModSummary[]>([])
   const [emulators, setEmulators] = useState<Emulator[]>([])
+  const [filter, setFilter] = useState<Filter>('all')
   const [refreshing, setRefreshing] = useState(false)
   const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
+  const [playError, setPlayError] = useState<string | null>(null)
 
   function loadMods(): Promise<void> {
     return window.api.catalog.list().then(setMods)
@@ -71,8 +75,15 @@ function CatalogBrowser(): React.JSX.Element {
 
   async function handlePlay(mod: ModSummary): Promise<void> {
     if (!defaultEmulator || !mod.status.patchedRomPath) return
-    await window.api.emulator.launch(defaultEmulator.id, mod.status.patchedRomPath)
+    setPlayError(null)
+    try {
+      await window.api.emulator.launch(defaultEmulator.id, mod.status.patchedRomPath)
+    } catch (err) {
+      setPlayError(err instanceof Error ? err.message : String(err))
+    }
   }
+
+  const visibleMods = filter === 'library' ? mods.filter((m) => m.status.state === 'ready') : mods
 
   return (
     <section>
@@ -81,14 +92,26 @@ function CatalogBrowser(): React.JSX.Element {
       <button onClick={() => void handleRefreshCatalog()} disabled={refreshing}>
         {refreshing ? 'Refreshing…' : 'Refresh catalog'}
       </button>
+      <button onClick={() => setFilter('all')} disabled={filter === 'all'}>
+        Browse all
+      </button>
+      <button onClick={() => setFilter('library')} disabled={filter === 'library'}>
+        My library
+      </button>
+
       {error && <p role="alert">Error refreshing catalog: {error}</p>}
+      {playError && <p role="alert">Couldn&apos;t launch emulator: {playError}</p>}
       {emulators.length === 0 && <p>Configure an emulator above before playing a mod.</p>}
 
-      {mods.length === 0 ? (
-        <p>No mods cached yet. Click &quot;Refresh catalog&quot; to fetch the list.</p>
+      {visibleMods.length === 0 ? (
+        <p>
+          {filter === 'library'
+            ? 'No mods installed yet - switch to "Browse all" to find one.'
+            : 'No mods cached yet. Click "Refresh catalog" to fetch the list.'}
+        </p>
       ) : (
         <ul>
-          {mods.map((mod) => {
+          {visibleMods.map((mod) => {
             const busy = busyIds.has(mod.id)
             return (
               <li key={mod.id}>

@@ -80,6 +80,14 @@ The "Play" button lives in the mod catalog UI (below) once a mod reaches the `re
 
 Verified end-to-end through the real rendered UI (not just IPC calls): seeded a mod pointing at a local HTTP server serving a `.zip` with two `.bps` candidates (one deliberately for the wrong ROM), clicked the actual `Download` button, and watched it correctly pick the matching patch, apply it, write the exact expected patched ROM bytes to disk, and flip to a `Play` button - the brief's "wire catalog → download → patch → play end-to-end for a single mod" milestone.
 
+## First-run flow and other UX polish
+
+`App.tsx` gates the UI in setup order: `EmulatorSetup` only renders once a ROM is configured, and `CatalogBrowser` only once at least one emulator exists too - each gate shows guidance pointing at the previous step instead of an empty/broken-looking section. `RomSetup`/`EmulatorSetup` report their state up to `App` via an `onConfigChange`/`onChange` prop (called after every successful mutation, not just on mount) rather than a bigger state-management refactor.
+
+`CatalogBrowser` also got a `Browse all` / `My library` toggle (library = `ready` mods only), and a real bug fix: `handlePlay` previously let a failed `emulator:launch` call disappear as an unhandled rejection - it's now caught and shown the same way other errors in this component are.
+
+Not done: a shared toast/notification component (each section already surfaces its own errors inline via `role="alert"`, which covers the same ground without a new abstraction) and a single consolidated "library" view separate from the catalog browser (the toggle above covers the same need without a second component).
+
 ## Packaging
 
 `npm run package:dir` builds an unpacked app (`release/linux-unpacked/` on Linux) via `electron-builder --dir` - runnable directly, no installer step, useful for verifying a packaged build actually works without generating a full AppImage/dmg/nsis installer every time. Full installer targets are configured per-platform in `package.json`'s `build` field (AppImage for Linux, dmg for macOS, nsis for Windows) but only the Linux `--dir` target has actually been built and smoke-tested in this environment.

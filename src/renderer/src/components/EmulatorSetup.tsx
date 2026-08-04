@@ -3,7 +3,11 @@ import type { Emulator, EmulatorInput, EmulatorValidationError } from '@shared/i
 
 const EMPTY_FORM: EmulatorInput = { name: '', executablePath: '', argsTemplate: '{romPath}' }
 
-function EmulatorSetup(): React.JSX.Element {
+interface EmulatorSetupProps {
+  onChange?: (emulators: Emulator[]) => void
+}
+
+function EmulatorSetup({ onChange }: EmulatorSetupProps): React.JSX.Element {
   const [emulators, setEmulators] = useState<Emulator[]>([])
   const [editingId, setEditingId] = useState<number | null>(null)
   const [form, setForm] = useState<EmulatorInput>(EMPTY_FORM)
@@ -11,11 +15,17 @@ function EmulatorSetup(): React.JSX.Element {
   const [busy, setBusy] = useState(false)
 
   function refresh(): Promise<void> {
-    return window.api.emulator.list().then(setEmulators)
+    return window.api.emulator.list().then((list) => {
+      setEmulators(list)
+      onChange?.(list)
+    })
   }
 
   useEffect(() => {
     void refresh()
+    // onChange intentionally omitted: this should only run once on mount,
+    // not whenever the parent passes a new callback identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function errorFor(field: EmulatorValidationError['field']): string | undefined {
