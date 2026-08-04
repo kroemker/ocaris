@@ -9,7 +9,13 @@ export const IpcChannel = {
   RomSelectFile: 'rom:select-file',
   RomVerify: 'rom:verify',
   RomConfirm: 'rom:confirm',
-  RomGetConfig: 'rom:get-config'
+  RomGetConfig: 'rom:get-config',
+  EmulatorList: 'emulator:list',
+  EmulatorSelectExecutable: 'emulator:select-executable',
+  EmulatorAdd: 'emulator:add',
+  EmulatorUpdate: 'emulator:update',
+  EmulatorDelete: 'emulator:delete',
+  EmulatorSetDefault: 'emulator:set-default'
 } as const
 
 export interface RomVerification {
@@ -30,4 +36,30 @@ export interface RomConfirmRequest {
   romPath: string
   variant: RomVariant | null
   verified: boolean
+}
+
+export interface Emulator {
+  id: number
+  name: string
+  executablePath: string
+  argsTemplate: string
+  isDefault: boolean
+  createdAt: number
+  updatedAt: number
+}
+
+export interface EmulatorInput {
+  name: string
+  executablePath: string
+  argsTemplate: string
+}
+
+export interface EmulatorValidationError {
+  field: 'name' | 'executablePath' | 'argsTemplate'
+  message: string
+}
+
+export interface EmulatorSaveResult {
+  emulator: Emulator | null
+  errors: EmulatorValidationError[]
 }

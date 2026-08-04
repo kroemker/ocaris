@@ -21,10 +21,12 @@ npm run test         # vitest
 ## Project layout
 
 ```
-src/main       Electron main process (window, SQLite, IPC handlers)
-src/main/db    SQLite connection, migrations, and per-entity DAOs
-src/main/rom   ROM header verification (N64 header CRC1/CRC2 check)
-src/preload    contextBridge-exposed, typed API surface for the renderer
+src/main            Electron main process (window, lifecycle)
+src/main/db         SQLite connection, migrations, and per-entity DAOs
+src/main/ipc        ipcMain handlers, one module per feature area
+src/main/rom        ROM header verification (N64 header CRC1/CRC2 check)
+src/main/emulator   Emulator executable-path validation
+src/preload         contextBridge-exposed, typed API surface for the renderer
 src/renderer   React app
 src/shared     Types/constants shared between main and renderer (e.g. IPC contract)
 tests/main     Unit tests for main-process modules

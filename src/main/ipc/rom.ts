@@ -5,11 +5,11 @@ import {
   type RomConfirmRequest,
   type RomVerification
 } from '@shared/ipc'
-import { getAppConfig, saveRomConfig } from './db/appConfig'
-import { getDatabase } from './db'
-import { verifyRomFile } from './rom/verify'
+import { getAppConfig, saveRomConfig } from '../db/appConfig'
+import { getDatabase } from '../db'
+import { verifyRomFile } from '../rom/verify'
 
-export function registerIpcHandlers(): void {
+export function registerRomIpcHandlers(): void {
   ipcMain.handle(IpcChannel.RomSelectFile, async (): Promise<string | null> => {
     const result = await dialog.showOpenDialog({
       title: 'Select your Ocarina of Time ROM',
