@@ -26,6 +26,8 @@ src/main/db         SQLite connection, migrations, and per-entity DAOs
 src/main/ipc        ipcMain handlers, one module per feature area
 src/main/rom        ROM header verification (N64 header CRC1/CRC2 check)
 src/main/emulator   Emulator executable-path validation
+src/main/download   Generic HTTP download engine (streaming, progress, cancellation)
+src/main/mods       Mod install pipeline (download patch -> apply -> ready)
 src/preload         contextBridge-exposed, typed API surface for the renderer
 src/renderer        React app
 src/shared          Types/constants shared between main and renderer (e.g. IPC contract)
@@ -51,3 +53,9 @@ This module has no Electron dependency and only deals with in-memory buffers; th
 ## Data layer
 
 SQLite schema covers four entities: `app_config` (verified ROM), `emulators`, `mods` (catalog cache), and `mod_status` (per-mod download/patch state). `mods`/`mod_status` are split so a catalog refresh (`upsertMods`) can update a mod's metadata without ever resetting its in-progress or completed download - only mods the app has never seen before get a fresh `not_downloaded` status row. No catalog source is wired up yet (that's WP5/WP6); this just lands the schema and DAO (`src/main/db/mods.ts`) ahead of it.
+
+## Download + install pipeline
+
+`src/main/download/downloadFile.ts` streams an arbitrary URL to disk (temp `.part` file, renamed on success) with progress reporting and `AbortSignal` cancellation; a failed or cancelled download never leaves a file at the destination path. `src/main/mods/install.ts` chains that with the BPS patch engine: download the patch, apply it against the verified base ROM, write the patched ROM, and update `mod_status` throughout (`downloading` → `ready`, or `error` with a message). `installMod()` never rejects - any failure resolves to an `error` status instead of throwing, since both a broken download and a ROM/patch mismatch are expected, user-facing outcomes rather than exceptional ones.
+
+Both are catalog-source-agnostic - they take a plain URL, not a source-specific object - so they don't depend on WP5/WP6 (the real catalog adapter, currently blocked on this environment's network access to `hylianmodding.com`) being done first.
