@@ -1,0 +1,24 @@
+node_modules
+out
+dist
+dist-electron
+release
+*.local
+*.tsbuildinfo
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+
+# OS
+.DS_Store
+
+# Logs
+*.log
+
+# App data created by running the app locally
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
