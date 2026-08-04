@@ -16,6 +16,7 @@ npm run typecheck   # tsc --noEmit for main/preload and renderer
 npm run lint         # eslint
 npm run format       # prettier --write
 npm run test         # vitest
+npm run package:dir  # unpacked packaged build, for testing packaging without a full installer
 ```
 
 ## Project layout
@@ -62,6 +63,14 @@ Both are catalog-source-agnostic - they take a plain URL, not a source-specific 
 
 ## Launching a mod
 
-`src/main/emulator/launch.ts` spawns a configured emulator with a patched ROM's path substituted into its argument template, detached from Ocaris so the emulator keeps running if Ocaris closes. `buildArgv()` splits the template on whitespace *before* substituting `{romPath}`, so a ROM path containing spaces stays one argv entry instead of being split apart. `launchEmulator()` waits for Node's `spawn`/`error` events rather than assuming `child_process.spawn()` succeeded synchronously - it returns a `ChildProcess` even for a nonexistent executable - so a bad emulator path rejects with a descriptive `LaunchError` instead of failing silently.
+`src/main/emulator/launch.ts` spawns a configured emulator with a patched ROM's path substituted into its argument template, detached from Ocaris so the emulator keeps running if Ocaris closes. `buildArgv()` splits the template on whitespace _before_ substituting `{romPath}`, so a ROM path containing spaces stays one argv entry instead of being split apart. `launchEmulator()` waits for Node's `spawn`/`error` events rather than assuming `child_process.spawn()` succeeded synchronously - it returns a `ChildProcess` even for a nonexistent executable - so a bad emulator path rejects with a descriptive `LaunchError` instead of failing silently.
 
 There's no "Play" button wired into the UI yet - that naturally belongs on the mod library view (WP7), which is itself blocked on the same catalog access as WP5/WP6. The IPC handler (`emulator:launch`, taking an emulator id and a ROM path) and the underlying spawn logic are done and tested independently of that.
+
+## Packaging
+
+`npm run package:dir` builds an unpacked app (`release/linux-unpacked/` on Linux) via `electron-builder --dir` - runnable directly, no installer step, useful for verifying a packaged build actually works without generating a full AppImage/dmg/nsis installer every time. Full installer targets are configured per-platform in `package.json`'s `build` field (AppImage for Linux, dmg for macOS, nsis for Windows) but only the Linux `--dir` target has actually been built and smoke-tested in this environment.
+
+`npmRebuild` is set to `false`: electron-builder's default native-module rebuild step needs to download Electron's headers, which this environment's network policy blocks. That rebuild would otherwise recompile `better-sqlite3` from source against Electron's Node ABI - but `better-sqlite3` already installs an Electron-aware prebuilt binary via `prebuild-install`, which every smoke test in this project (including one run directly against the packaged `release/linux-unpacked/ocaris` binary, not just `npm run dev`) has exercised successfully. If a future native dependency doesn't ship Electron-compatible prebuilds, this will need revisiting (either restoring `npmRebuild` somewhere with network access, or running `electron-rebuild` manually).
+
+No app icon yet - packaged builds use Electron's default icon. Cosmetic, not blocking.
