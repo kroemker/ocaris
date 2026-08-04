@@ -9,7 +9,10 @@ describe('runMigrations', () => {
     runMigrations(db)
 
     const rows = db.prepare('SELECT id, name FROM schema_migrations ORDER BY id').all()
-    expect(rows).toEqual([{ id: 1, name: 'initial_schema_version_table' }])
+    expect(rows).toEqual([
+      { id: 1, name: 'initial_schema_version_table' },
+      { id: 2, name: 'app_config' }
+    ])
 
     db.close()
   })
@@ -23,7 +26,7 @@ describe('runMigrations', () => {
     const count = db.prepare('SELECT COUNT(*) as count FROM schema_migrations').get() as {
       count: number
     }
-    expect(count.count).toBe(1)
+    expect(count.count).toBe(2)
 
     db.close()
   })

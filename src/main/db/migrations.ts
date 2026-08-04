@@ -23,6 +23,22 @@ const migrations: Migration[] = [
         );
       `)
     }
+  },
+  {
+    id: 2,
+    name: 'app_config',
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS app_config (
+          id INTEGER PRIMARY KEY CHECK (id = 1),
+          rom_path TEXT,
+          rom_variant TEXT,
+          rom_verified INTEGER NOT NULL DEFAULT 0,
+          rom_user_confirmed INTEGER NOT NULL DEFAULT 0,
+          updated_at INTEGER
+        );
+      `)
+    }
   }
 ]
 
