@@ -246,4 +246,41 @@ describe('installMod', () => {
 
     db.close()
   })
+
+  it('resolves a cancelled download to not_downloaded rather than an error', async () => {
+    const romPath = join(dir, 'source.z64')
+    writeFileSync(romPath, Buffer.from('some rom bytes'))
+
+    const controller = new AbortController()
+
+    // Announce a body far larger than what's sent, then stall: the download is
+    // still in flight when the abort lands.
+    const baseUrl = await startServer((_req, res) => {
+      res.writeHead(200, { 'content-length': '100000' })
+      res.write(Buffer.alloc(16))
+      controller.abort()
+    })
+
+    const { db, modId } = createDbWithMod()
+
+    const status = await installMod({
+      db,
+      modId,
+      downloadUrl: `${baseUrl}/patch.bps`,
+      romPath,
+      patchCacheDir: join(dir, 'patches'),
+      patchedRomDir: join(dir, 'roms'),
+      signal: controller.signal
+    })
+
+    expect(status.state).toBe('not_downloaded')
+    expect(status.errorMessage).toBeNull()
+    expect(status.downloadProgressBytes).toBeNull()
+
+    // A cancelled download leaves nothing behind to resume or clean up.
+    const stem = modId.replace(/[^a-zA-Z0-9_-]/g, '_')
+    expect(existsSync(join(dir, 'patches', `${stem}.bps`))).toBe(false)
+
+    db.close()
+  })
 })

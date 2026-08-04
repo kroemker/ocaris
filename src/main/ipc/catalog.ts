@@ -14,6 +14,7 @@ import {
   type ModWithStatus
 } from '../db/mods'
 import { getPatchCacheDir, getPatchedRomDir } from '../storage/paths'
+import { beginInstall, endInstall } from './mods'
 import { HylianModdingCatalogSource } from '../catalog/hylianModdingSource'
 import { refreshCatalog } from '../catalog/refresh'
 import { installMod } from '../mods/install'
@@ -77,14 +78,22 @@ export function registerCatalogIpcHandlers(): void {
       throw new Error('No ROM configured yet.')
     }
 
-    await installMod({
-      db,
-      modId,
-      downloadUrl: metadata.downloadLink,
-      romPath: romConfig.romPath,
-      patchCacheDir: getPatchCacheDir(db),
-      patchedRomDir: getPatchedRomDir(db)
-    })
+    // Registered so mod:cancel can abort this one download; installMod turns
+    // the abort into a 'not_downloaded' status rather than an error.
+    const controller = beginInstall(modId)
+    try {
+      await installMod({
+        db,
+        modId,
+        downloadUrl: metadata.downloadLink,
+        romPath: romConfig.romPath,
+        patchCacheDir: getPatchCacheDir(db),
+        patchedRomDir: getPatchedRomDir(db),
+        signal: controller.signal
+      })
+    } finally {
+      endInstall(modId, controller)
+    }
 
     const updated = getModWithStatus(db, modId)
     if (!updated) {

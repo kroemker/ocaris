@@ -50,6 +50,12 @@ const api = {
     install: (modId: string): Promise<ModSummary> =>
       ipcRenderer.invoke(IpcChannel.ModInstall, modId)
   },
+  mod: {
+    /** Resolves true if a download was in flight and has been aborted. */
+    cancel: (modId: string): Promise<boolean> => ipcRenderer.invoke(IpcChannel.ModCancel, modId),
+    remove: (modId: string): Promise<void> => ipcRenderer.invoke(IpcChannel.ModRemove, modId),
+    reveal: (modId: string): Promise<void> => ipcRenderer.invoke(IpcChannel.ModReveal, modId)
+  },
   storage: {
     usage: (): Promise<StorageUsage> => ipcRenderer.invoke(IpcChannel.StorageUsage),
     openFolder: (): Promise<void> => ipcRenderer.invoke(IpcChannel.StorageOpenFolder)

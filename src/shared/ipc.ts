@@ -29,6 +29,9 @@ export const IpcChannel = {
   CatalogList: 'catalog:list',
   CatalogStats: 'catalog:stats',
   ModInstall: 'mod:install',
+  ModCancel: 'mod:cancel',
+  ModRemove: 'mod:remove',
+  ModReveal: 'mod:reveal',
   StorageUsage: 'storage:usage',
   StorageOpenFolder: 'storage:open-folder',
   ShellOpenExternal: 'shell:open-external'
