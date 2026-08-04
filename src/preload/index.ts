@@ -27,7 +27,10 @@ const api = {
     update: (id: number, input: EmulatorInput): Promise<EmulatorSaveResult> =>
       ipcRenderer.invoke(IpcChannel.EmulatorUpdate, id, input),
     remove: (id: number): Promise<void> => ipcRenderer.invoke(IpcChannel.EmulatorDelete, id),
-    setDefault: (id: number): Promise<void> => ipcRenderer.invoke(IpcChannel.EmulatorSetDefault, id)
+    setDefault: (id: number): Promise<void> =>
+      ipcRenderer.invoke(IpcChannel.EmulatorSetDefault, id),
+    launch: (emulatorId: number, romPath: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannel.EmulatorLaunch, emulatorId, romPath)
   }
 }
 

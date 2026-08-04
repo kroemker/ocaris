@@ -15,7 +15,8 @@ export const IpcChannel = {
   EmulatorAdd: 'emulator:add',
   EmulatorUpdate: 'emulator:update',
   EmulatorDelete: 'emulator:delete',
-  EmulatorSetDefault: 'emulator:set-default'
+  EmulatorSetDefault: 'emulator:set-default',
+  EmulatorLaunch: 'emulator:launch'
 } as const
 
 export interface RomVerification {

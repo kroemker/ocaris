@@ -8,6 +8,7 @@ import {
   updateEmulator
 } from '../db/emulators'
 import { getDatabase } from '../db'
+import { launchEmulator } from '../emulator/launch'
 import { validateExecutablePath } from '../emulator/validate'
 import { validateEmulatorInput } from '../emulator/validateInput'
 
@@ -64,4 +65,15 @@ export function registerEmulatorIpcHandlers(): void {
   ipcMain.handle(IpcChannel.EmulatorSetDefault, (_event, id: number): void => {
     setDefaultEmulator(getDatabase(), id)
   })
+
+  ipcMain.handle(
+    IpcChannel.EmulatorLaunch,
+    async (_event, emulatorId: number, romPath: string): Promise<void> => {
+      const emulator = listEmulators(getDatabase()).find((e) => e.id === emulatorId)
+      if (!emulator) {
+        throw new Error(`Emulator ${emulatorId} not found`)
+      }
+      await launchEmulator(emulator.executablePath, emulator.argsTemplate, romPath)
+    }
+  )
 }
