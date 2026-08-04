@@ -95,3 +95,13 @@ Not done: a shared toast/notification component (each section already surfaces i
 `npmRebuild` is set to `false`: electron-builder's default native-module rebuild step needs to download Electron's headers, which this environment's network policy blocks. That rebuild would otherwise recompile `better-sqlite3` from source against Electron's Node ABI - but `better-sqlite3` already installs an Electron-aware prebuilt binary via `prebuild-install`, which every smoke test in this project (including one run directly against the packaged `release/linux-unpacked/ocaris` binary, not just `npm run dev`) has exercised successfully. If a future native dependency doesn't ship Electron-compatible prebuilds, this will need revisiting (either restoring `npmRebuild` somewhere with network access, or running `electron-rebuild` manually).
 
 No app icon yet - packaged builds use Electron's default icon. Cosmetic, not blocking.
+
+### Dependency deprecation warnings
+
+`npm install` used to print four `npm warn deprecated` lines - all from packages several levels deep inside `electron-builder`'s own dependency tree (`@electron/asar` for asar packing, `electron-winstaller` for the Windows installer target), never from anything Ocaris depends on directly, and never bundled into the shipped app (electron-builder is a devDependency only; none of these end up in `out/` or `release/`).
+
+- `glob@7.2.3` and `inflight@1.0.6` (glob's own dependency): fixed via a top-level `overrides` entry pinning `glob` to `^13.0.6`, which drops the `inflight`-based caching entirely. Verified this doesn't break packaging, not just assumed it: ran `npm run package:dir` and smoke-tested the actual packaged `release/linux-unpacked/ocaris` binary (launches, creates and migrates its SQLite DB correctly) with the override in place, since `@electron/asar` is exactly the code that exercises `glob` during packaging.
+- `rimraf@2.6.3`: same approach, overridden to `^6.1.3`, same verification.
+- `boolean@3.2.0`: **not fixable** - 3.2.0 is the last version ever published; the package is permanently abandoned with no successor. The `npm warn deprecated boolean@3.2.0` line will keep appearing until `electron-builder`'s own dependency chain (`@electron/get` → `global-agent` → `boolean`) drops it upstream. Confirmed via `npm view boolean version` (still 3.2.0) and `npm view boolean deprecated` (permanent, not a redirect to a new package name).
+
+`npm audit` reports 0 vulnerabilities before and after - these were maintenance-status warnings, not security issues.
