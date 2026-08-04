@@ -2,6 +2,7 @@ import { useState } from 'react'
 import RomSetup from './components/RomSetup'
 import EmulatorSetup from './components/EmulatorSetup'
 import CatalogBrowser from './components/CatalogBrowser'
+import TopBar from './components/TopBar'
 import { useTheme } from './theme/useTheme'
 import type { Emulator, RomConfig } from '@shared/ipc'
 
@@ -16,22 +17,25 @@ function App(): React.JSX.Element {
   const hasEmulator = emulators.length > 0
 
   return (
-    <main>
-      <h1>Ocaris</h1>
+    <div className="app">
+      <TopBar />
 
-      <RomSetup onConfigChange={setRomConfig} />
+      {/* Setup still lives inline here; it moves into the settings dialog next. */}
+      <main className="legacy-body">
+        <RomSetup onConfigChange={setRomConfig} />
 
-      {romConfigured ? (
-        <EmulatorSetup onChange={setEmulators} />
-      ) : (
-        <p>Configure your ROM above to continue setup.</p>
-      )}
+        {romConfigured ? (
+          <EmulatorSetup onChange={setEmulators} />
+        ) : (
+          <p>Configure your ROM above to continue setup.</p>
+        )}
 
-      {romConfigured && hasEmulator && <CatalogBrowser />}
-      {romConfigured && !hasEmulator && (
-        <p>Configure at least one emulator above to browse and play mods.</p>
-      )}
-    </main>
+        {romConfigured && hasEmulator && <CatalogBrowser />}
+        {romConfigured && !hasEmulator && (
+          <p>Configure at least one emulator above to browse and play mods.</p>
+        )}
+      </main>
+    </div>
   )
 }
 

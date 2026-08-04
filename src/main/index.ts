@@ -3,7 +3,11 @@ import { join } from 'node:path'
 import { initDatabase, getDatabase } from './db'
 import { getAppConfig } from './db/appConfig'
 import { registerIpcHandlers } from './ipc'
-import { applyTitleBarOverlay, backgroundColorForTheme } from './window/titleBar'
+import {
+  applyTitleBarOverlay,
+  backgroundColorForTheme,
+  titleBarOverlayForTheme
+} from './window/titleBar'
 
 const isDev = !app.isPackaged
 
@@ -16,6 +20,14 @@ function createWindow(): void {
     // (or black) in the wrong theme on launch.
     backgroundColor: backgroundColorForTheme(),
     autoHideMenuBar: true,
+    // The renderer's own top bar doubles as the title bar. Windows and Linux
+    // draw the window controls as a recolorable overlay on top of it; macOS
+    // draws traffic lights on the left instead and ignores these colors, which
+    // the renderer accounts for via env(titlebar-area-x).
+    titleBarStyle: 'hidden',
+    titleBarOverlay: titleBarOverlayForTheme(),
+    minWidth: 720,
+    minHeight: 480,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,

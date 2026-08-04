@@ -26,18 +26,50 @@
   white-space: nowrap;
 }
 
+/*
+ * Temporary home for the pre-existing setup components while they're being
+ * moved into the settings dialog. Removed once that lands.
+ */
+.legacy-body {
+  flex: 1;
+  padding: 18px;
+  overflow-y: auto;
+}
+
 /* ------------------------------------------------------------------ *
  * Top bar
  * ------------------------------------------------------------------ */
 
+/*
+ * The top bar *is* the window title bar (titleBarStyle: 'hidden'), so it has
+ * to leave room for the native window controls drawn over it. The
+ * titlebar-area-* environment variables describe where those controls are:
+ * on Windows/Linux they sit right, on macOS left, and the fallbacks apply
+ * when no overlay is drawn at all.
+ */
 .topbar {
   display: flex;
   flex: none;
   gap: 12px;
   align-items: center;
-  padding: 12px 18px;
+  min-height: env(titlebar-area-height, 46px);
+  padding-block: 12px;
+  padding-left: max(env(titlebar-area-x, 0px), 18px);
+  padding-right: calc(100% - env(titlebar-area-width, 100%) - env(titlebar-area-x, 0px) + 18px);
   background: var(--bg2);
   border-bottom: 1px solid var(--line);
+  -webkit-app-region: drag;
+}
+
+/*
+ * Everything interactive must opt out of the drag region, or it stops being
+ * clickable and moves the window instead.
+ */
+.topbar button,
+.topbar input,
+.topbar select,
+.topbar a {
+  -webkit-app-region: no-drag;
 }
 
 .brand {
