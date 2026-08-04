@@ -6,10 +6,6 @@ export interface Migration {
   up: (db: Database.Database) => void
 }
 
-/**
- * WP0 only proves the migration mechanism works; the real application
- * schema (mods, mod_status, emulators, app_config) lands in WP4.
- */
 const migrations: Migration[] = [
   {
     id: 1,
@@ -52,6 +48,37 @@ const migrations: Migration[] = [
           args_template TEXT NOT NULL DEFAULT '{romPath}',
           is_default INTEGER NOT NULL DEFAULT 0,
           created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+      `)
+    }
+  },
+  {
+    id: 4,
+    name: 'mods',
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS mods (
+          id TEXT PRIMARY KEY,
+          source TEXT NOT NULL,
+          source_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          author TEXT,
+          description TEXT,
+          metadata_json TEXT,
+          fetched_at INTEGER NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_mods_source ON mods (source);
+
+        CREATE TABLE IF NOT EXISTS mod_status (
+          mod_id TEXT PRIMARY KEY REFERENCES mods (id) ON DELETE CASCADE,
+          state TEXT NOT NULL DEFAULT 'not_downloaded',
+          patch_file_path TEXT,
+          patched_rom_path TEXT,
+          download_progress_bytes INTEGER,
+          download_total_bytes INTEGER,
+          error_message TEXT,
           updated_at INTEGER NOT NULL
         );
       `)

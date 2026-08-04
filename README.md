@@ -47,3 +47,7 @@ A header CRC mismatch is a warning, not a hard block — the user can explicitly
 `src/patch/bps.ts` applies [BPS](https://gist.github.com/khadiwala/32b16f8bb3d0a97e0f60)-format patches to a source ROM buffer and returns the patched output; it never touches the input buffer. BPS patches embed three CRC32 checksums (source, target, and the patch file itself), all of which are verified: a corrupt/truncated patch file is rejected before any patching is attempted, and a patch applied to the wrong source ROM is rejected with a descriptive error rather than silently producing garbage output. `.xdelta` is not supported - only `.bps` patches, which is what the primary catalog candidates in [WORK_PACKAGES.md](./WORK_PACKAGES.md) are expected to use.
 
 This module has no Electron dependency and only deals with in-memory buffers; the main process (in a later work package) is responsible for reading the ROM/patch files from disk and writing the result.
+
+## Data layer
+
+SQLite schema covers four entities: `app_config` (verified ROM), `emulators`, `mods` (catalog cache), and `mod_status` (per-mod download/patch state). `mods`/`mod_status` are split so a catalog refresh (`upsertMods`) can update a mod's metadata without ever resetting its in-progress or completed download - only mods the app has never seen before get a fresh `not_downloaded` status row. No catalog source is wired up yet (that's WP5/WP6); this just lands the schema and DAO (`src/main/db/mods.ts`) ahead of it.
