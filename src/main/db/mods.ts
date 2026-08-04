@@ -21,6 +21,8 @@ export interface Mod {
   description: string | null
   metadata: unknown
   fetchedAt: number
+  /** When this mod was first seen in any catalog refresh; never updated after insert. */
+  firstSeenAt: number | null
 }
 
 export interface ModStatus {
@@ -47,6 +49,7 @@ interface ModRow {
   description: string | null
   metadata_json: string | null
   fetched_at: number
+  first_seen_at: number | null
 }
 
 interface ModStatusRow {
@@ -73,7 +76,8 @@ function rowToMod(row: ModRow): Mod {
     author: row.author,
     description: row.description,
     metadata: row.metadata_json ? JSON.parse(row.metadata_json) : null,
-    fetchedAt: row.fetched_at
+    fetchedAt: row.fetched_at,
+    firstSeenAt: row.first_seen_at
   }
 }
 
@@ -99,9 +103,11 @@ function rowToModStatus(row: ModStatusRow): ModStatus {
 export function upsertMods(db: Database.Database, records: ModRecord[]): void {
   const now = Date.now()
 
+  // first_seen_at is deliberately absent from the DO UPDATE clause: it records
+  // when a mod first showed up, so a later refresh must not move it.
   const upsertMod = db.prepare(
-    `INSERT INTO mods (id, source, source_id, name, author, description, metadata_json, fetched_at)
-     VALUES (@id, @source, @sourceId, @name, @author, @description, @metadataJson, @fetchedAt)
+    `INSERT INTO mods (id, source, source_id, name, author, description, metadata_json, fetched_at, first_seen_at)
+     VALUES (@id, @source, @sourceId, @name, @author, @description, @metadataJson, @fetchedAt, @fetchedAt)
      ON CONFLICT(id) DO UPDATE SET
        name = excluded.name,
        author = excluded.author,

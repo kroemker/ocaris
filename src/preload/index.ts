@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import {
   IpcChannel,
+  type AppSettings,
   type CatalogRefreshResult,
   type Emulator,
   type EmulatorInput,
@@ -8,10 +9,16 @@ import {
   type ModSummary,
   type RomConfig,
   type RomConfirmRequest,
-  type RomVerification
+  type RomVerification,
+  type ThemeSource
 } from '@shared/ipc'
 
 const api = {
+  config: {
+    get: (): Promise<AppSettings> => ipcRenderer.invoke(IpcChannel.ConfigGet),
+    setTheme: (theme: ThemeSource): Promise<AppSettings> =>
+      ipcRenderer.invoke(IpcChannel.ConfigSetTheme, theme)
+  },
   rom: {
     selectFile: (): Promise<string | null> => ipcRenderer.invoke(IpcChannel.RomSelectFile),
     verify: (filePath: string): Promise<RomVerification> =>

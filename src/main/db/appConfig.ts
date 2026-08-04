@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3'
+import type { ThemeSource } from '@shared/ipc'
 import type { RomVariant } from '../rom/checksums'
 
 export interface AppConfig {
@@ -6,6 +7,7 @@ export interface AppConfig {
   romVariant: RomVariant | null
   romVerified: boolean
   romUserConfirmed: boolean
+  theme: ThemeSource
   updatedAt: number | null
 }
 
@@ -14,14 +16,18 @@ interface AppConfigRow {
   rom_variant: RomVariant | null
   rom_verified: number
   rom_user_confirmed: number
+  theme: ThemeSource | null
   updated_at: number | null
 }
+
+const DEFAULT_THEME: ThemeSource = 'system'
 
 const EMPTY_CONFIG: AppConfig = {
   romPath: null,
   romVariant: null,
   romVerified: false,
   romUserConfirmed: false,
+  theme: DEFAULT_THEME,
   updatedAt: null
 }
 
@@ -31,6 +37,7 @@ function rowToConfig(row: AppConfigRow): AppConfig {
     romVariant: row.rom_variant,
     romVerified: row.rom_verified === 1,
     romUserConfirmed: row.rom_user_confirmed === 1,
+    theme: row.theme ?? DEFAULT_THEME,
     updatedAt: row.updated_at
   }
 }
@@ -38,7 +45,7 @@ function rowToConfig(row: AppConfigRow): AppConfig {
 export function getAppConfig(db: Database.Database): AppConfig {
   const row = db
     .prepare(
-      'SELECT rom_path, rom_variant, rom_verified, rom_user_confirmed, updated_at FROM app_config WHERE id = 1'
+      'SELECT rom_path, rom_variant, rom_verified, rom_user_confirmed, theme, updated_at FROM app_config WHERE id = 1'
     )
     .get() as AppConfigRow | undefined
 
@@ -71,6 +78,21 @@ export function saveRomConfig(db: Database.Database, input: SaveRomConfigInput):
     romUserConfirmed: input.romUserConfirmed ? 1 : 0,
     updatedAt
   })
+
+  return getAppConfig(db)
+}
+
+/**
+ * Writes only the theme column. The config row may not exist yet - the theme
+ * can be changed before a ROM is ever picked - so this upserts, and the
+ * conflict clause touches nothing but `theme` to avoid clobbering ROM fields.
+ * `updated_at` is left alone for the same reason: it tracks the ROM config.
+ */
+export function saveTheme(db: Database.Database, theme: ThemeSource): AppConfig {
+  db.prepare(
+    `INSERT INTO app_config (id, theme) VALUES (1, @theme)
+     ON CONFLICT(id) DO UPDATE SET theme = excluded.theme`
+  ).run({ theme })
 
   return getAppConfig(db)
 }

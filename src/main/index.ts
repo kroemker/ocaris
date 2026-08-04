@@ -1,7 +1,9 @@
-import { app, shell, BrowserWindow } from 'electron'
+import { app, shell, nativeTheme, BrowserWindow } from 'electron'
 import { join } from 'node:path'
-import { initDatabase } from './db'
+import { initDatabase, getDatabase } from './db'
+import { getAppConfig } from './db/appConfig'
 import { registerIpcHandlers } from './ipc'
+import { applyTitleBarOverlay, backgroundColorForTheme } from './window/titleBar'
 
 const isDev = !app.isPackaged
 
@@ -10,6 +12,9 @@ function createWindow(): void {
     width: 1100,
     height: 720,
     show: false,
+    // Painted before the renderer loads, so the window doesn't flash white
+    // (or black) in the wrong theme on launch.
+    backgroundColor: backgroundColorForTheme(),
     autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -22,6 +27,15 @@ function createWindow(): void {
   mainWindow.once('ready-to-show', () => {
     mainWindow.show()
   })
+
+  // Fires both when the user picks a theme (config:set-theme assigns
+  // themeSource) and when the OS theme flips while the preference is 'system'.
+  const onThemeUpdated = (): void => {
+    applyTitleBarOverlay(mainWindow)
+    mainWindow.setBackgroundColor(backgroundColorForTheme())
+  }
+  nativeTheme.on('updated', onThemeUpdated)
+  mainWindow.on('closed', () => nativeTheme.off('updated', onThemeUpdated))
 
   // Open external links in the OS browser instead of a new Electron window.
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -41,6 +55,11 @@ void app.whenReady().then(() => {
 
   initDatabase()
   registerIpcHandlers()
+
+  // Before the first window: createWindow() reads the resolved theme for its
+  // background color, and shouldUseDarkColors only reflects the stored
+  // preference once themeSource is set.
+  nativeTheme.themeSource = getAppConfig(getDatabase()).theme
 
   createWindow()
 

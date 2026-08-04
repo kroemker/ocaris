@@ -5,7 +5,15 @@
 
 export type RomVariant = 'compressed' | 'byteswap-compressed' | 'decompressed'
 
+/**
+ * Theme preference as stored. 'system' defers to the OS, which Electron
+ * surfaces to the renderer through prefers-color-scheme.
+ */
+export type ThemeSource = 'system' | 'light' | 'dark'
+
 export const IpcChannel = {
+  ConfigGet: 'config:get',
+  ConfigSetTheme: 'config:set-theme',
   RomSelectFile: 'rom:select-file',
   RomVerify: 'rom:verify',
   RomConfirm: 'rom:confirm',
@@ -22,6 +30,10 @@ export const IpcChannel = {
   ModInstall: 'mod:install',
   ShellOpenExternal: 'shell:open-external'
 } as const
+
+export interface AppSettings {
+  theme: ThemeSource
+}
 
 export interface RomVerification {
   verified: boolean

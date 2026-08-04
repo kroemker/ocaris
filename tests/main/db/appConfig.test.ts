@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import Database from 'better-sqlite3'
 import { runMigrations } from '../../../src/main/db/migrations'
-import { getAppConfig, saveRomConfig } from '../../../src/main/db/appConfig'
+import { getAppConfig, saveRomConfig, saveTheme } from '../../../src/main/db/appConfig'
 
 function createDb(): Database.Database {
   const db = new Database(':memory:')
@@ -17,6 +17,7 @@ describe('appConfig DAO', () => {
       romVariant: null,
       romVerified: false,
       romUserConfirmed: false,
+      theme: 'system',
       updatedAt: null
     })
     db.close()
@@ -66,6 +67,35 @@ describe('appConfig DAO', () => {
       count: number
     }
     expect(rowCount.count).toBe(1)
+
+    db.close()
+  })
+
+  it('saves a theme before any ROM has been configured', () => {
+    const db = createDb()
+
+    const config = saveTheme(db, 'light')
+
+    expect(config.theme).toBe('light')
+    expect(config.romPath).toBeNull()
+    expect(getAppConfig(db).theme).toBe('light')
+
+    db.close()
+  })
+
+  it('leaves the ROM config untouched when the theme changes', () => {
+    const db = createDb()
+
+    const saved = saveRomConfig(db, {
+      romPath: '/roms/oot.z64',
+      romVariant: 'compressed',
+      romVerified: true,
+      romUserConfirmed: true
+    })
+
+    saveTheme(db, 'dark')
+
+    expect(getAppConfig(db)).toEqual({ ...saved, theme: 'dark' })
 
     db.close()
   })
