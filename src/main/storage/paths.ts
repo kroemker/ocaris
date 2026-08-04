@@ -17,3 +17,9 @@ export function getPatchCacheDir(_db: Database.Database): string {
 export function getPatchedRomDir(_db: Database.Database): string {
   return join(app.getPath('userData'), 'roms')
 }
+
+/** Cached, downscaled catalog thumbnails. Disposable - deleting it just means
+ *  rows show placeholders until the next catalog refresh. */
+export function getThumbnailDir(): string {
+  return join(app.getPath('userData'), 'thumbs')
+}

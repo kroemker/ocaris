@@ -3,6 +3,8 @@ import { join } from 'node:path'
 import { initDatabase, getDatabase } from './db'
 import { getAppConfig } from './db/appConfig'
 import { registerIpcHandlers } from './ipc'
+import { getThumbnailDir } from './storage/paths'
+import { registerThumbnailProtocol, registerThumbnailScheme } from './thumbnails/protocol'
 import {
   applyTitleBarOverlay,
   backgroundColorForTheme,
@@ -10,6 +12,9 @@ import {
 } from './window/titleBar'
 
 const isDev = !app.isPackaged
+
+// Must happen before 'ready', unlike the protocol handler itself.
+registerThumbnailScheme()
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -67,6 +72,7 @@ void app.whenReady().then(() => {
 
   initDatabase()
   registerIpcHandlers()
+  registerThumbnailProtocol(getThumbnailDir())
 
   // Before the first window: createWindow() reads the resolved theme for its
   // background color, and shouldUseDarkColors only reflects the stored
