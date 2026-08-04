@@ -1,5 +1,6 @@
 import RomSetup from './components/RomSetup'
 import EmulatorSetup from './components/EmulatorSetup'
+import CatalogBrowser from './components/CatalogBrowser'
 
 function App(): React.JSX.Element {
   return (
@@ -7,6 +8,7 @@ function App(): React.JSX.Element {
       <h1>Ocaris</h1>
       <RomSetup />
       <EmulatorSetup />
+      <CatalogBrowser />
     </main>
   )
 }

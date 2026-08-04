@@ -39,6 +39,10 @@ const api = {
     list: (): Promise<ModSummary[]> => ipcRenderer.invoke(IpcChannel.CatalogList),
     install: (modId: string): Promise<ModSummary> =>
       ipcRenderer.invoke(IpcChannel.ModInstall, modId)
+  },
+  shell: {
+    openExternal: (url: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannel.ShellOpenExternal, url)
   }
 }
 

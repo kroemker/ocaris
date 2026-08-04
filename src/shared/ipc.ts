@@ -19,7 +19,8 @@ export const IpcChannel = {
   EmulatorLaunch: 'emulator:launch',
   CatalogRefresh: 'catalog:refresh',
   CatalogList: 'catalog:list',
-  ModInstall: 'mod:install'
+  ModInstall: 'mod:install',
+  ShellOpenExternal: 'shell:open-external'
 } as const
 
 export interface RomVerification {
