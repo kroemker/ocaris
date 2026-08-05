@@ -1,0 +1,54 @@
+/*
+ * Midnight — the app's single design token set.
+ *
+ * :root is the dark theme; [data-theme='light'] overrides it. The attribute is
+ * written by useTheme() from the stored 'system' | 'light' | 'dark' preference,
+ * so nothing below needs a prefers-color-scheme query.
+ *
+ * Colors are not shared 1:1 between the two themes: the dark accents fail
+ * contrast on white, so the light theme darkens accent/ok/warn/err rather than
+ * reusing them.
+ */
+
+:root {
+  --page: #0a0c11;
+  --bg: #0f1116;
+  --bg2: #151922;
+  --bg3: #1c212c;
+  --fg: #e6e8ee;
+  --dim: #8e97ab;
+  --line: #262c38;
+  --accent: #5b8cff;
+  --accent-fg: #ffffff;
+  --accent-soft: #1b2740;
+  --ok: #3fbf7f;
+  --warn: #e6b23c;
+  --err: #ef5a5a;
+  --shadow: 0 18px 50px rgb(0 0 0 / 50%);
+  --thumb-shadow: 0 1px 3px rgb(0 0 0 / 45%);
+
+  --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --mono: consolas, ui-monospace, monospace;
+
+  color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  --page: #e9ecf1;
+  --bg: #ffffff;
+  --bg2: #f7f8fb;
+  --bg3: #eceff5;
+  --fg: #171a21;
+  --dim: #646d80;
+  --line: #dce0e9;
+  --accent: #3568e0;
+  --accent-fg: #ffffff;
+  --accent-soft: #e4ecff;
+  --ok: #1c8a56;
+  --warn: #9a6c0a;
+  --err: #cf3b3b;
+  --shadow: 0 14px 40px rgb(28 40 70 / 14%);
+  --thumb-shadow: 0 1px 3px rgb(0 0 0 / 35%);
+
+  color-scheme: light;
+}

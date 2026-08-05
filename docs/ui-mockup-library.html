@@ -1,0 +1,673 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ocaris — media-row library · 20 color/font themes</title>
+    <style>
+      /* ============================================================
+         TOKENS — every theme is just an override of this block.
+         Set on :root so the settings modal (outside .app) themes too.
+         ============================================================ */
+      :root {
+        --page: #0a0c11;
+        --bg: #0f1116; --bg2: #151922; --bg3: #1c212c;
+        --fg: #e6e8ee; --dim: #8e97ab; --line: #262c38;
+        --accent: #5b8cff; --accent-fg: #ffffff;
+        --ok: #3fbf7f; --warn: #e6b23c; --err: #ef5a5a;
+        --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        --mono: Consolas, ui-monospace, monospace;
+        --radius: 10px;
+        --title-tt: none; --title-ls: 0;
+        --shadow: 0 18px 50px rgba(0, 0, 0, .5);
+      }
+
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0; background: var(--page); color: var(--fg);
+        font-family: var(--font); font-size: 14px;
+      }
+
+      /* ============================================================
+         THEME PICKER (mockup chrome — not part of the app design)
+         ============================================================ */
+      .picker {
+        position: sticky; top: 0; z-index: 40;
+        background: color-mix(in srgb, var(--bg2) 92%, transparent);
+        border-bottom: 1px solid var(--line); backdrop-filter: blur(8px);
+        padding: 9px 14px;
+      }
+      .picker-head {
+        display: flex; align-items: center; gap: 12px; margin-bottom: 8px;
+        font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim);
+      }
+      .picker-head b { color: var(--fg); letter-spacing: 0; text-transform: none; font-size: 13px; }
+      .swatches { display: flex; gap: 6px; flex-wrap: wrap; }
+      .sw {
+        display: flex; align-items: center; gap: 7px; cursor: pointer;
+        border: 1px solid var(--line); background: var(--bg3); color: var(--fg);
+        border-radius: 8px; padding: 5px 9px; font: inherit; font-size: 11.5px;
+      }
+      .sw:hover { border-color: var(--accent); }
+      .sw.on { outline: 2px solid var(--accent); outline-offset: 1px; }
+      .sw .chips { display: flex; }
+      .sw .chips i {
+        width: 11px; height: 11px; border-radius: 3px; display: block;
+        border: 1px solid rgba(128, 128, 128, .35);
+      }
+      .sw .chips i + i { margin-left: -3px; }
+      .sw .idx { color: var(--dim); font-variant-numeric: tabular-nums; }
+      .theme-note { padding: 8px 16px; font-size: 12.5px; color: var(--dim); border-bottom: 1px solid var(--line); }
+      .theme-note b { color: var(--fg); }
+
+      .stage { padding: 22px; }
+
+      /* ============================================================
+         APP
+         ============================================================ */
+      .app {
+        max-width: 1080px; margin: 0 auto; min-height: 760px;
+        display: flex; flex-direction: column;
+        background: var(--bg); border: 1px solid var(--line);
+        border-radius: 12px; overflow: hidden; box-shadow: var(--shadow);
+      }
+
+      .topbar {
+        display: flex; align-items: center; gap: 12px;
+        padding: 12px 18px; background: var(--bg2); border-bottom: 1px solid var(--line);
+      }
+      .brand { font-weight: 700; letter-spacing: var(--title-ls); }
+      .brand small {
+        display: block; font-weight: 400; font-size: 10.5px; color: var(--dim);
+        letter-spacing: .12em; text-transform: uppercase;
+      }
+      .spacer { flex: 1; }
+      .search {
+        background: var(--bg3); border: 1px solid var(--line); color: var(--fg);
+        border-radius: 999px; padding: 7px 14px; font: inherit; font-size: 13px; min-width: 240px;
+      }
+      .search::placeholder { color: var(--dim); }
+      .search:focus { outline: none; border-color: var(--accent); }
+
+      .btn {
+        font: inherit; font-size: 13px; padding: 7px 14px; border-radius: 8px; cursor: pointer;
+        border: 1px solid var(--line); background: var(--bg3); color: var(--fg); white-space: nowrap;
+      }
+      .btn:hover { border-color: var(--accent); }
+      .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
+      .btn.primary:hover { filter: brightness(1.08); }
+      .btn.ghost { background: transparent; }
+      .btn.icon { padding: 7px 10px; }
+      .btn.sm { font-size: 12px; padding: 5px 10px; }
+      .btn[disabled] { opacity: .45; cursor: not-allowed; }
+
+      /* ---------------- filter bar ---------------- */
+      .filterbar {
+        display: flex; align-items: center; gap: 7px;
+        padding: 11px 18px; border-bottom: 1px solid var(--line); background: var(--bg);
+      }
+      .chip {
+        font: inherit; font-size: 12.5px; padding: 5px 12px; border-radius: 999px; cursor: pointer;
+        border: 1px solid var(--line); background: transparent; color: var(--dim);
+        display: inline-flex; align-items: center; gap: 7px;
+      }
+      .chip:hover { color: var(--fg); border-color: color-mix(in srgb, var(--fg) 25%, var(--line)); }
+      .chip .n {
+        font-size: 11px; padding: 0 6px; border-radius: 999px;
+        background: var(--bg3); color: var(--dim); line-height: 17px;
+      }
+      .chip.on { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+      .chip.on .n { background: color-mix(in srgb, var(--accent-fg) 22%, transparent); color: var(--accent-fg); }
+      .chip.alert:not(.on) { color: var(--err); border-color: color-mix(in srgb, var(--err) 45%, var(--line)); }
+      .chip[data-empty='true'] { opacity: .4; }
+      .sortsel {
+        font: inherit; font-size: 12.5px; padding: 5px 10px; border-radius: 8px;
+        background: var(--bg3); border: 1px solid var(--line); color: var(--dim); cursor: pointer;
+      }
+
+      /* ---------------- list ---------------- */
+      .list { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+      .row {
+        display: flex; gap: 16px; padding: 14px; border-radius: var(--radius);
+        background: var(--bg2); border: 1px solid var(--line); transition: border-color .12s ease;
+      }
+      .row:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+      .row.is-error { border-color: color-mix(in srgb, var(--err) 40%, var(--line)); }
+
+      .thumb {
+        flex: none; width: 104px; height: 78px; border-radius: 8px;
+        display: grid; place-items: center; font-size: 21px; font-weight: 700; color: #fff;
+        background: linear-gradient(135deg, var(--c1), var(--c2));
+        text-shadow: 0 1px 3px rgba(0, 0, 0, .45); overflow: hidden;
+      }
+
+      .body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+      .title {
+        font-size: 15px; font-weight: 650; margin: 0 0 3px;
+        text-transform: var(--title-tt); letter-spacing: var(--title-ls);
+      }
+      .meta {
+        display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+        font-size: 12px; color: var(--dim); margin-bottom: 7px;
+      }
+      .meta .sep { opacity: .5; }
+      .desc {
+        font-size: 12.5px; color: var(--dim); line-height: 1.5;
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+      }
+      .desc.err { color: var(--err); }
+      .clip { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+      /* ---------------- right rail: status above action ---------------- */
+      .side {
+        flex: none; width: 168px; display: flex; flex-direction: column;
+        align-items: stretch; justify-content: center; gap: 9px; text-align: right;
+      }
+      .side .btn { width: 100%; }
+      .side .row-actions { display: flex; gap: 6px; }
+      .side .row-actions .btn { flex: 1; }
+
+      .status {
+        display: flex; align-items: center; justify-content: flex-end; gap: 6px;
+        font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; font-weight: 600;
+      }
+      .status.ready { color: var(--ok); }
+      .status.downloading { color: var(--accent); }
+      .status.error { color: var(--err); }
+      .status.available { color: var(--dim); font-weight: 500; }
+      .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
+      .status.downloading .dot { animation: pulse 1.1s ease-in-out infinite; }
+      @keyframes pulse { 50% { opacity: .25; } }
+
+      .prog { display: flex; flex-direction: column; gap: 5px; }
+      .bar { height: 4px; border-radius: 999px; background: var(--bg3); overflow: hidden; }
+      .bar > i { display: block; height: 100%; background: var(--accent); }
+      .prog .num { font-size: 11px; color: var(--dim); font-family: var(--mono); }
+
+      .empty { padding: 60px 20px; text-align: center; color: var(--dim); }
+
+      .statusline {
+        display: flex; align-items: center; gap: 10px; padding: 8px 18px;
+        border-top: 1px solid var(--line); background: var(--bg2); font-size: 12px; color: var(--dim);
+      }
+      .statusline .ok { color: var(--ok); }
+
+      /* ---------------- settings modal ---------------- */
+      .scrim {
+        position: fixed; inset: 0; background: color-mix(in srgb, var(--page) 72%, transparent);
+        backdrop-filter: blur(3px);
+        display: none; align-items: center; justify-content: center; padding: 26px; z-index: 60;
+      }
+      .scrim.open { display: flex; }
+      .modal {
+        width: min(720px, 100%); height: min(540px, 100%); display: flex; flex-direction: column;
+        background: var(--bg2); color: var(--fg); border: 1px solid var(--line); border-radius: 14px;
+        overflow: hidden; box-shadow: 0 30px 90px rgba(0, 0, 0, .55); font-family: var(--font);
+      }
+      .modal-h { display: flex; align-items: center; padding: 15px 18px; border-bottom: 1px solid var(--line); }
+      .modal-h h3 { margin: 0; font-size: 15px; letter-spacing: var(--title-ls); }
+      .msplit { display: grid; grid-template-columns: 172px 1fr; flex: 1; min-height: 0; }
+      .mside { background: var(--bg); border-right: 1px solid var(--line); padding: 12px 8px; }
+      .mside button {
+        display: block; width: 100%; text-align: left; font: inherit; font-size: 13px;
+        background: none; border: none; color: var(--dim); padding: 8px 11px; border-radius: 7px; cursor: pointer;
+      }
+      .mside button:hover { color: var(--fg); }
+      .mside button.on { background: var(--bg3); color: var(--fg); }
+      .modal-b { padding: 18px; overflow: auto; }
+      .modal-f {
+        display: flex; gap: 10px; justify-content: flex-end;
+        padding: 13px 18px; border-top: 1px solid var(--line); background: var(--bg);
+      }
+      .sec-title {
+        font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+        color: var(--dim); margin: 0 0 12px;
+      }
+      .field { margin-bottom: 16px; }
+      .field > label { display: block; font-size: 12px; color: var(--dim); margin-bottom: 5px; }
+      .ctl { display: flex; gap: 8px; }
+      .ctl input, .ctl select {
+        flex: 1; font: inherit; font-size: 13px; padding: 8px 11px; border-radius: 8px;
+        background: var(--bg); border: 1px solid var(--line); color: var(--fg); font-family: var(--mono);
+      }
+      .hint { font-size: 11.5px; color: var(--dim); margin-top: 6px; display: flex; align-items: center; gap: 8px; }
+      .pill {
+        display: inline-flex; align-items: center; gap: 5px; font-size: 11px;
+        padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor;
+      }
+      .pill.ok { color: var(--ok); }
+      .pill.flat { border-color: var(--line); color: var(--dim); }
+      .emu-row {
+        display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+        border: 1px solid var(--line); border-radius: 9px; margin-bottom: 8px; background: var(--bg);
+      }
+      .emu-row .path { font-family: var(--mono); font-size: 11.5px; color: var(--dim); }
+      code { font-family: var(--mono); font-size: 11.5px; background: var(--bg); padding: 1px 5px; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <div class="picker">
+      <div class="picker-head">
+        <b>Ocaris — media-row library</b>
+        <span>20 color / font themes · same layout · ← → to cycle</span>
+      </div>
+      <div class="swatches" id="swatches"></div>
+    </div>
+    <div class="theme-note" id="note"></div>
+
+    <div class="stage">
+      <div class="app">
+        <div class="topbar">
+          <div class="brand">Ocaris<small>Mod launcher</small></div>
+          <div class="spacer"></div>
+          <input class="search" id="search" placeholder="Search mods or authors…" />
+          <button class="btn">Refresh catalog</button>
+          <button class="btn icon" data-open title="Settings">⚙</button>
+        </div>
+
+        <div class="filterbar" id="filters"></div>
+        <div class="list" id="list"></div>
+
+        <div class="statusline">
+          <span id="count"></span>
+          <span>·</span><span class="ok">ROM verified</span>
+          <span>·</span><span>Ares (default)</span>
+          <span class="spacer"></span>
+          <span>Catalog refreshed 12m ago</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="scrim" id="scrim">
+      <div class="modal">
+        <div class="modal-h">
+          <h3>Settings</h3><div class="spacer"></div>
+          <button class="btn icon ghost" data-close>✕</button>
+        </div>
+        <div class="msplit">
+          <div class="mside" id="mside">
+            <button class="on" data-pane="rom">ROM</button>
+            <button data-pane="emu">Emulators</button>
+            <button data-pane="cat">Catalog</button>
+            <button data-pane="storage">Storage</button>
+            <button data-pane="about">About</button>
+          </div>
+          <div class="modal-b" id="mbody"></div>
+        </div>
+        <div class="modal-f"><button class="btn" data-close>Close</button></div>
+      </div>
+    </div>
+
+    <script>
+      /* ============================================================
+         THEMES — colors + font pairing only; layout is identical.
+         Fonts are Windows-available stacks (no webfont downloads).
+         ============================================================ */
+      const THEMES = [
+        { id: 'midnight', name: 'Midnight', note: 'Neutral blue-black, Segoe UI. Safe default — reads as a modern desktop app, nothing distracting.',
+          v: { page:'#0a0c11', bg:'#0f1116', bg2:'#151922', bg3:'#1c212c', fg:'#e6e8ee', dim:'#8e97ab', line:'#262c38',
+               accent:'#5b8cff', accentFg:'#ffffff', ok:'#3fbf7f', warn:'#e6b23c', err:'#ef5a5a',
+               font:"'Segoe UI', system-ui, sans-serif", mono:'Consolas, ui-monospace, monospace' } },
+
+        { id: 'graphite', name: 'Graphite', note: 'Steam-library grey with a cool blue action. Verdana keeps small text legible at the cost of width.',
+          v: { page:'#0e1013', bg:'#14171c', bg2:'#1b1f26', bg3:'#232833', fg:'#dfe3e9', dim:'#8d95a1', line:'#2c323c',
+               accent:'#4a9fd4', accentFg:'#04202e', ok:'#5fbf6a', warn:'#dda23a', err:'#e05c5c',
+               font:'Verdana, Geneva, sans-serif', mono:'Consolas, monospace' } },
+
+        { id: 'kokiri', name: 'Kokiri', note: 'Forest green on near-black, warm gold highlights. Zelda-adjacent without being literal. Trebuchet gives it a slightly softer edge.',
+          v: { page:'#080c09', bg:'#0d120e', bg2:'#131a15', bg3:'#1a231c', fg:'#e4ecdf', dim:'#8ba38d', line:'#233026',
+               accent:'#57b95f', accentFg:'#05190a', ok:'#7fd06a', warn:'#e0b455', err:'#e06565',
+               font:"'Trebuchet MS', 'Segoe UI', sans-serif", mono:'Consolas, monospace' } },
+
+        { id: 'zora', name: 'Zora', note: 'Deep water blues with an aqua accent. Cool, calm, low contrast between surfaces — needs the border line to carry structure.',
+          v: { page:'#060e14', bg:'#0a141c', bg2:'#101d27', bg3:'#172733', fg:'#dcecf3', dim:'#7fa0b0', line:'#1e3341',
+               accent:'#2fc0c8', accentFg:'#032024', ok:'#43cba0', warn:'#e0b358', err:'#ef6b6b',
+               font:'Candara, Corbel, sans-serif', mono:'Consolas, monospace' } },
+
+        { id: 'goron', name: 'Goron', note: 'Volcanic browns with an ember-orange action. Warm and heavy; error red has to shift toward pink to stay distinct.',
+          v: { page:'#120b08', bg:'#17100c', bg2:'#1f1712', bg3:'#291f18', fg:'#f0e4da', dim:'#a89184', line:'#352820',
+               accent:'#e2793a', accentFg:'#1c0c03', ok:'#8fc05a', warn:'#e8b74a', err:'#ef5f7d',
+               font:"'Franklin Gothic Medium', 'Segoe UI', sans-serif", mono:'Consolas, monospace' } },
+
+        { id: 'gerudo', name: 'Gerudo', note: 'Desert dusk — violet base, sand accent. The most saturated of the dark set; good for a launcher that wants personality.',
+          v: { page:'#0f0a16', bg:'#150e1e', bg2:'#1d1428', bg3:'#261b34', fg:'#efe4f2', dim:'#a08cb0', line:'#332444',
+               accent:'#e8b25e', accentFg:'#26180a', ok:'#5fc99a', warn:'#e8b25e', err:'#ef5f8a',
+               font:"'Palatino Linotype', Georgia, serif", mono:'Consolas, monospace' } },
+
+        { id: 'sheikah', name: 'Sheikah', note: 'Near-black with a single cyan glow and Bahnschrift condensed. Very "tech interface" — fits the ROM/CRC side of the app, cold for browsing art.',
+          v: { page:'#04070a', bg:'#080d12', bg2:'#0d141b', bg3:'#131d26', fg:'#d8ecf5', dim:'#6f8b9b', line:'#17242f',
+               accent:'#38d6ee', accentFg:'#00181f', ok:'#3fdcb0', warn:'#e8c14a', err:'#ff5f6d',
+               font:"Bahnschrift, 'Segoe UI', sans-serif", mono:"'Cascadia Mono', Consolas, monospace" },
+          x: { titleLs: '.02em' } },
+
+        { id: 'cartridge', name: 'Cartridge', note: 'N64-era gold on brown, Courier throughout, uppercase titles. Charming for five minutes — check whether long mod names survive the uppercase.',
+          v: { page:'#0e0c08', bg:'#12100c', bg2:'#191510', bg3:'#221c14', fg:'#f3e9d2', dim:'#a2937a', line:'#3a3122',
+               accent:'#d9a441', accentFg:'#201603', ok:'#9ec95f', warn:'#d9a441', err:'#e0603f',
+               font:"'Courier New', Courier, monospace", mono:"'Courier New', monospace" },
+          x: { titleTt: 'uppercase', titleLs: '.06em', radius: '4px' } },
+
+        { id: 'phosphor', name: 'Phosphor', note: 'Green CRT terminal, Cascadia Mono. Fully committed retro; status colors have almost nowhere to go except brightness.',
+          v: { page:'#030804', bg:'#050d07', bg2:'#08140b', bg3:'#0d1e11', fg:'#b9f5c4', dim:'#5f9b6d', line:'#14301b',
+               accent:'#3ff07a', accentFg:'#032a11', ok:'#3ff07a', warn:'#d8e35a', err:'#ff6b5c',
+               font:"'Cascadia Mono', Consolas, monospace", mono:"'Cascadia Mono', Consolas, monospace" },
+          x: { titleTt: 'uppercase', titleLs: '.05em', radius: '3px' } },
+
+        { id: 'amber', name: 'Amber', note: 'Amber monochrome terminal. Same idea as Phosphor but warmer and easier on long reading; red errors still separate.',
+          v: { page:'#0b0703', bg:'#100a04', bg2:'#171006', bg3:'#20170a', fg:'#f6d8a0', dim:'#a8834b', line:'#33240f',
+               accent:'#ffb43d', accentFg:'#241300', ok:'#c8d24a', warn:'#ffb43d', err:'#ff6a4a',
+               font:'Consolas, ui-monospace, monospace', mono:'Consolas, monospace' },
+          x: { radius: '4px' } },
+
+        { id: 'nord', name: 'Nord', note: 'Muted arctic palette, low saturation everywhere. Easiest of the dark themes to look at for an hour; accent is quiet, so Play reads less loudly.',
+          v: { page:'#20242d', bg:'#2e3440', bg2:'#3b4252', bg3:'#434c5e', fg:'#eceff4', dim:'#93a1b5', line:'#4c566a',
+               accent:'#88c0d0', accentFg:'#20242d', ok:'#a3be8c', warn:'#ebcb8b', err:'#bf616a',
+               font:"'Segoe UI', system-ui, sans-serif", mono:'Consolas, monospace' } },
+
+        { id: 'dracula', name: 'Dracula', note: 'Purple base, pink/green accents. Reads as a dev tool. High personality, and the green Ready badge pops hardest here.',
+          v: { page:'#191a21', bg:'#22232e', bg2:'#282a36', bg3:'#343746', fg:'#f8f8f2', dim:'#9aa0b8', line:'#3d4056',
+               accent:'#bd93f9', accentFg:'#1c1626', ok:'#50fa7b', warn:'#f1fa8c', err:'#ff5555',
+               font:"'Segoe UI', system-ui, sans-serif", mono:"'Cascadia Mono', Consolas, monospace" } },
+
+        { id: 'sol-dark', name: 'Solarized Dark', note: 'Teal-tinted dark with a yellow action. Deliberately low contrast — verify the dim meta line is still readable on your monitor.',
+          v: { page:'#00252e', bg:'#002b36', bg2:'#073642', bg3:'#0d4250', fg:'#eee8d5', dim:'#93a1a1', line:'#12505f',
+               accent:'#b58900', accentFg:'#08222a', ok:'#859900', warn:'#cb4b16', err:'#dc322f',
+               font:"'Segoe UI', system-ui, sans-serif", mono:'Consolas, monospace' } },
+
+        { id: 'sol-light', name: 'Solarized Light', note: 'Cream paper, same accents. First light theme — thumbnails carry all the color, so bright mod art dominates the row.',
+          v: { page:'#eee8d5', bg:'#fdf6e3', bg2:'#f5eeda', bg3:'#ece5d0', fg:'#073642', dim:'#7c8b8b', line:'#ded7c2',
+               accent:'#268bd2', accentFg:'#ffffff', ok:'#2f8f2f', warn:'#b58900', err:'#dc322f',
+               font:"'Segoe UI', system-ui, sans-serif", mono:'Consolas, monospace' },
+          x: { shadow: '0 14px 40px rgba(80,70,40,.18)' } },
+
+        { id: 'paper', name: 'Paper', note: 'Warm white with a Georgia serif for titles-through-body. Feels like a catalog/reading app rather than a launcher — good if descriptions matter most.',
+          v: { page:'#efece6', bg:'#ffffff', bg2:'#faf8f4', bg3:'#f0ece4', fg:'#231f1a', dim:'#7a7268', line:'#e0dbd1',
+               accent:'#8a5a2b', accentFg:'#ffffff', ok:'#3f7d4a', warn:'#b07d20', err:'#b93a30',
+               font:'Georgia, "Sitka Text", serif', mono:'Consolas, monospace' },
+          x: { shadow: '0 14px 40px rgba(60,50,35,.16)' } },
+
+        { id: 'blueprint', name: 'Blueprint', note: 'Cool light grey-blue, Tahoma. Utilitarian, Windows-native. The least "themed" option — closest to a stock desktop tool.',
+          v: { page:'#e8ecf1', bg:'#ffffff', bg2:'#f5f7fa', bg3:'#e9edf3', fg:'#1c2531', dim:'#697588', line:'#d7dee8',
+               accent:'#2f6fd0', accentFg:'#ffffff', ok:'#1f8a53', warn:'#b57a10', err:'#c0392b',
+               font:'Tahoma, "Segoe UI", sans-serif', mono:'Consolas, monospace' },
+          x: { shadow: '0 14px 40px rgba(30,50,80,.15)' } },
+
+        { id: 'contrast', name: 'High Contrast', note: 'Accessibility pass: pure black/white, thick borders, Verdana. Ugly on purpose — use it to check that nothing relies on color alone.',
+          v: { page:'#000000', bg:'#000000', bg2:'#0a0a0a', bg3:'#161616', fg:'#ffffff', dim:'#c8c8c8', line:'#6a6a6a',
+               accent:'#ffe000', accentFg:'#000000', ok:'#00e070', warn:'#ffe000', err:'#ff5252',
+               font:'Verdana, Tahoma, sans-serif', mono:'Consolas, monospace' },
+          x: { radius: '4px', shadow: 'none' } },
+
+        { id: 'rose', name: 'Rosé Dusk', note: 'Muted mauve/rose dark theme. Softer than the blue defaults; the pink accent competes with the red error state — worth testing side by side.',
+          v: { page:'#14101a', bg:'#1a1520', bg2:'#221b2a', bg3:'#2c2436', fg:'#f0e6f2', dim:'#a293ad', line:'#372e42',
+               accent:'#e08bb0', accentFg:'#2a0f1c', ok:'#6fca9f', warn:'#e6c07b', err:'#f2657f',
+               font:'Corbel, Candara, sans-serif', mono:'Consolas, monospace' } },
+
+        { id: 'ocean', name: 'Deep Ocean', note: 'Navy with a bright cyan-teal action and Segoe UI Variable. Closest sibling to Midnight — pick between them on accent temperature.',
+          v: { page:'#070d1a', bg:'#0b1424', bg2:'#111c30', bg3:'#18253c', fg:'#e2ebf7', dim:'#8497b3', line:'#1f2e47',
+               accent:'#25d0c0', accentFg:'#032622', ok:'#4ad991', warn:'#f0c059', err:'#f2647a',
+               font:"'Segoe UI Variable Text', 'Segoe UI', sans-serif", mono:"'Cascadia Mono', Consolas, monospace" } },
+
+        { id: 'parchment', name: 'Parchment', note: 'Light theme in the Zelda register — aged paper, deep green ink, Constantia serif. The only light theme that still feels themed rather than neutral.',
+          v: { page:'#e6ddc7', bg:'#f7f1e1', bg2:'#f1ead6', bg3:'#e7dfc8', fg:'#2b2718', dim:'#7d7358', line:'#d8cfb4',
+               accent:'#2f6b45', accentFg:'#f7f1e1', ok:'#2f6b45', warn:'#a97b1f', err:'#a83a2a',
+               font:'Constantia, Georgia, serif', mono:'Consolas, monospace' },
+          x: { shadow: '0 14px 40px rgba(90,75,45,.2)' } }
+      ];
+
+      function applyTheme(t) {
+        const r = document.documentElement.style;
+        const v = t.v, x = t.x || {};
+        r.setProperty('--page', v.page);
+        r.setProperty('--bg', v.bg);
+        r.setProperty('--bg2', v.bg2);
+        r.setProperty('--bg3', v.bg3);
+        r.setProperty('--fg', v.fg);
+        r.setProperty('--dim', v.dim);
+        r.setProperty('--line', v.line);
+        r.setProperty('--accent', v.accent);
+        r.setProperty('--accent-fg', v.accentFg);
+        r.setProperty('--ok', v.ok);
+        r.setProperty('--warn', v.warn);
+        r.setProperty('--err', v.err);
+        r.setProperty('--font', v.font);
+        r.setProperty('--mono', v.mono);
+        r.setProperty('--radius', x.radius || '10px');
+        r.setProperty('--title-tt', x.titleTt || 'none');
+        r.setProperty('--title-ls', x.titleLs || '0');
+        r.setProperty('--shadow', x.shadow || '0 18px 50px rgba(0,0,0,.5)');
+      }
+
+      /* ============================================================
+         CATALOG DATA (unchanged from the layout mockup)
+         ============================================================ */
+      const MODS = [
+        { name: 'The Missing Link', author: 'Kenix', completion: 'Complete', size: '32.0 MB',
+          desc: 'A full-length quest set between Ocarina of Time and Majora’s Mask. New dungeon, new items, fully voiced cutscenes.',
+          state: 'ready', c1: '#3b6ef0', c2: '#7b4bf0' },
+        { name: 'OoT Randomizer', author: 'OoTR Team', completion: 'Complete', size: '18.1 MB',
+          desc: 'Shuffles item locations, entrances, and dungeon layouts. The most-played OoT mod by a wide margin.',
+          state: 'ready', c1: '#0f9d84', c2: '#1e6ea8' },
+        { name: 'Dawn & Dusk', author: 'Nokaubure', completion: 'Complete', size: '6.6 MB',
+          desc: 'Overhauled overworld with a day/night questline and a fully rebuilt Gerudo Valley.',
+          state: 'downloading', pct: 62, got: '4.1', c1: '#e0873a', c2: '#c0405e' },
+        { name: 'Ura Zelda Restoration', author: 'Zeldix', completion: 'Beta', size: '—',
+          desc: 'Restores cut Master Quest content and beta assets from early builds.',
+          state: 'error', err: 'No .bps patch in the archive matched your ROM', c1: '#8a6d3b', c2: '#5b4326' },
+        { name: 'Zelda’s Birthday', author: 'SanguinettiMods', completion: 'Complete', size: '4.2 MB',
+          desc: 'Short, comedic romp with a rewritten script. Good entry point — about two hours long.',
+          state: 'not_downloaded', c1: '#c94f8d', c2: '#7040c0' },
+        { name: 'The Sealed Palace', author: 'Tharo', completion: 'In development', size: '5.8 MB',
+          desc: 'Single large dungeon focused on new puzzle mechanics and custom music.',
+          state: 'not_downloaded', c1: '#4b7bd0', c2: '#2fae9c' },
+        { name: 'Hylian Ruins', author: 'ShadowFire', completion: 'Complete', size: '9.4 MB',
+          desc: 'Exploration-first romhack with a rebuilt Hyrule Field, no time limit, and hidden shrines.',
+          state: 'not_downloaded', c1: '#3fa46b', c2: '#1f6f8b' },
+        { name: 'Chaos Edition', author: 'Glank', completion: 'Complete', size: '3.1 MB',
+          desc: 'Random effects fire every 15 seconds. Built for streams, not for sanity.',
+          state: 'not_downloaded', c1: '#e04f4f', c2: '#b0308f' },
+        { name: 'Song of Storms', author: 'Cielos', completion: 'Complete', size: '7.7 MB',
+          desc: 'Weather-driven puzzles across a reworked Kakariko and Death Mountain.',
+          state: 'not_downloaded', c1: '#5566c8', c2: '#2b3f8f' },
+        { name: 'Termina Bound', author: 'Skawo', completion: 'Beta', size: '—',
+          desc: 'Cross-game mashup pulling Majora’s Mask areas into the OoT engine.',
+          state: 'error', err: 'Download is a .7z archive — Ocaris can’t extract it', c1: '#7a5cc0', c2: '#3c2f7a' }
+      ];
+
+      const FILTERS = [
+        { id: 'all', label: 'All', match: () => true },
+        { id: 'ready', label: 'Ready to play', match: (m) => m.state === 'ready' },
+        { id: 'downloading', label: 'Downloading', match: (m) => m.state === 'downloading' },
+        { id: 'available', label: 'Not installed', match: (m) => m.state === 'not_downloaded' },
+        { id: 'error', label: 'Needs attention', match: (m) => m.state === 'error', alert: true }
+      ];
+      const STATUS = {
+        ready:          { cls: 'ready',       text: 'Ready' },
+        downloading:    { cls: 'downloading', text: 'Downloading' },
+        error:          { cls: 'error',       text: 'Error' },
+        not_downloaded: { cls: 'available',   text: 'Not installed' }
+      };
+
+      let activeFilter = 'all';
+      let query = '';
+      const initials = (n) => n.split(/[\s:&]+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+      const matchQuery = (m) => !query.trim() || (m.name + ' ' + m.author).toLowerCase().includes(query.trim().toLowerCase());
+
+      function renderFilters() {
+        const pool = MODS.filter(matchQuery);
+        document.getElementById('filters').innerHTML =
+          FILTERS.map((f) => {
+            const n = pool.filter(f.match).length;
+            return `<button class="chip ${f.id === activeFilter ? 'on' : ''} ${f.alert && n ? 'alert' : ''}"
+                      data-filter="${f.id}" data-empty="${n === 0 && f.id !== 'all'}">
+                      ${f.label}<span class="n">${n}</span></button>`;
+          }).join('') +
+          `<span class="spacer"></span>
+           <select class="sortsel">
+             <option>Sort: Name (A–Z)</option><option>Sort: Recently added</option>
+             <option>Sort: Author</option><option>Sort: Size</option>
+           </select>`;
+      }
+
+      /* right rail — status label above the action button, right-aligned */
+      function side(m) {
+        const s = STATUS[m.state];
+        const label = `<div class="status ${s.cls}"><span class="dot"></span>${s.text}</div>`;
+        if (m.state === 'downloading') return `
+          ${label}
+          <div class="prog">
+            <div class="bar"><i style="width:${m.pct}%"></i></div>
+            <div class="num">${m.got} / ${m.size} · ${m.pct}%</div>
+          </div>
+          <button class="btn sm">Cancel</button>`;
+        if (m.state === 'ready') return `
+          ${label}
+          <button class="btn primary">▶ Play</button>
+          <div class="row-actions"><button class="btn sm ghost">Folder</button><button class="btn sm ghost">Remove</button></div>`;
+        if (m.state === 'error') return `
+          ${label}
+          <button class="btn">Retry</button>
+          <button class="btn sm ghost">Open page ↗</button>`;
+        return `${label}<button class="btn">Download</button>`;
+      }
+
+      function renderList() {
+        const mods = MODS.filter((m) => FILTERS.find((f) => f.id === activeFilter).match(m) && matchQuery(m));
+        document.getElementById('list').innerHTML = mods.length
+          ? mods.map((m) => `
+              <div class="row ${m.state === 'error' ? 'is-error' : ''}">
+                <div class="thumb" style="--c1:${m.c1};--c2:${m.c2}">${initials(m.name)}</div>
+                <div class="body">
+                  <h3 class="title clip">${m.name}</h3>
+                  <div class="meta">
+                    <span>${m.author}</span><span class="sep">·</span>
+                    <span>${m.completion}</span><span class="sep">·</span>
+                    <span>${m.size}</span>
+                  </div>
+                  <div class="desc ${m.state === 'error' ? 'err' : ''}">${m.state === 'error' ? m.err : m.desc}</div>
+                </div>
+                <div class="side">${side(m)}</div>
+              </div>`).join('')
+          : '<div class="empty">No mods match this filter.</div>';
+        document.getElementById('count').textContent = `${mods.length} of ${MODS.length} mods`;
+      }
+      const render = () => { renderFilters(); renderList(); };
+
+      document.getElementById('filters').addEventListener('click', (e) => {
+        const chip = e.target.closest('[data-filter]');
+        if (!chip) return;
+        activeFilter = chip.dataset.filter;
+        render();
+      });
+      document.getElementById('search').addEventListener('input', (e) => { query = e.target.value; render(); });
+      render();
+
+      /* ---------------- settings modal ---------------- */
+      const PANES = {
+        rom: `
+          <div class="sec-title">ROM</div>
+          <div class="field">
+            <label>ROM file — OoT 1.0 (U)</label>
+            <div class="ctl"><input value="D:\\ROMs\\zelda_oot_1.0_u.z64" readonly /><button class="btn">Browse…</button></div>
+            <div class="hint"><span class="pill ok">✓ Header CRC verified</span><span>compressed · CRC1 EC7011B7</span></div>
+          </div>
+          <p class="hint">Ocaris never modifies this file — patched copies go to the output folder.</p>`,
+        emu: `
+          <div class="sec-title">Emulators</div>
+          <div class="emu-row">
+            <div style="flex:1"><div style="font-weight:600">Ares <span class="pill flat">default</span></div>
+              <div class="path">C:\\Emulators\\ares\\ares.exe</div></div>
+            <button class="btn sm">Edit</button><button class="btn sm ghost">Remove</button>
+          </div>
+          <div class="emu-row">
+            <div style="flex:1"><div style="font-weight:600">Project64</div>
+              <div class="path">C:\\Program Files\\Project64\\Project64.exe</div></div>
+            <button class="btn sm">Edit</button><button class="btn sm ghost">Remove</button>
+          </div>
+          <button class="btn">+ Add emulator</button>
+          <div class="field" style="margin-top:18px">
+            <label>Launch arguments (Ares)</label>
+            <div class="ctl"><input value="--fullscreen {romPath}" /></div>
+            <div class="hint"><code>{romPath}</code> is replaced with the patched ROM path.</div>
+          </div>`,
+        cat: `
+          <div class="sec-title">Catalog</div>
+          <div class="field">
+            <label>Source</label>
+            <div class="ctl"><select><option>hylianmodding.com</option><option>Local folder…</option></select>
+              <button class="btn">Refresh now</button></div>
+            <div class="hint">41 OoT mods cached · last refreshed 12 minutes ago</div>
+          </div>
+          <div class="field"><label><input type="checkbox" checked /> Refresh catalog on startup</label></div>`,
+        storage: `
+          <div class="sec-title">Storage</div>
+          <div class="field">
+            <label>Patched ROM output folder</label>
+            <div class="ctl"><input value="C:\\Users\\leo\\Documents\\Ocaris\\patched" readonly /><button class="btn">Browse…</button></div>
+            <div class="hint">3 patched ROMs · 96.2 MB</div>
+          </div>
+          <button class="btn">Open folder</button> <button class="btn ghost">Clear downloads</button>`,
+        about: `
+          <div class="sec-title">About</div>
+          <p style="margin-top:0">Ocaris 0.1.0 — local desktop hub for Ocarina of Time mods.</p>
+          <p class="hint">Electron · better-sqlite3 · BPS patch engine</p>`
+      };
+      const scrim = document.getElementById('scrim');
+      const mbody = document.getElementById('mbody');
+      mbody.innerHTML = PANES.rom;
+      document.querySelectorAll('[data-open]').forEach((b) => (b.onclick = () => scrim.classList.add('open')));
+      scrim.addEventListener('click', (e) => {
+        if (e.target === scrim || e.target.closest('[data-close]')) scrim.classList.remove('open');
+      });
+      document.getElementById('mside').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-pane]');
+        if (!b) return;
+        [...b.parentElement.children].forEach((x) => x.classList.remove('on'));
+        b.classList.add('on');
+        mbody.innerHTML = PANES[b.dataset.pane];
+      });
+
+      /* ---------------- theme picker wiring ---------------- */
+      const swatches = document.getElementById('swatches');
+      const note = document.getElementById('note');
+      let current = 0;
+
+      swatches.innerHTML = THEMES.map((t, i) => `
+        <button class="sw" data-i="${i}" style="font-family:${t.v.font.replace(/"/g, "'")}">
+          <span class="chips">
+            <i style="background:${t.v.bg}"></i><i style="background:${t.v.accent}"></i><i style="background:${t.v.fg}"></i>
+          </span>
+          <span class="idx">${String(i + 1).padStart(2, '0')}</span>${t.name}
+        </button>`).join('');
+
+      function select(i) {
+        current = (i + THEMES.length) % THEMES.length;
+        const t = THEMES[current];
+        applyTheme(t);
+        [...swatches.children].forEach((b, j) => b.classList.toggle('on', j === current));
+        note.innerHTML = `<b>${String(current + 1).padStart(2, '0')} · ${t.name}</b> — ${t.note}
+          &nbsp;·&nbsp; UI font: <code>${t.v.font.split(',')[0].replace(/'/g, '')}</code>`;
+      }
+      swatches.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-i]');
+        if (b) select(+b.dataset.i);
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') scrim.classList.remove('open');
+        if (e.target.tagName === 'INPUT') return;
+        if (e.key === 'ArrowRight') select(current + 1);
+        if (e.key === 'ArrowLeft') select(current - 1);
+      });
+      select(0);
+
+      /* fake download progress so the row feels alive */
+      setInterval(() => {
+        const m = MODS.find((x) => x.state === 'downloading');
+        if (!m) return;
+        m.pct = m.pct >= 99 ? 4 : m.pct + 1;
+        m.got = (parseFloat(m.size) * m.pct / 100).toFixed(1);
+        renderList();
+      }, 900);
+    </script>
+  </body>
+</html>

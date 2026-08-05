@@ -5,7 +5,15 @@
 
 export type RomVariant = 'compressed' | 'byteswap-compressed' | 'decompressed'
 
+/**
+ * Theme preference as stored. 'system' defers to the OS, which Electron
+ * surfaces to the renderer through prefers-color-scheme.
+ */
+export type ThemeSource = 'system' | 'light' | 'dark'
+
 export const IpcChannel = {
+  ConfigGet: 'config:get',
+  ConfigSetTheme: 'config:set-theme',
   RomSelectFile: 'rom:select-file',
   RomVerify: 'rom:verify',
   RomConfirm: 'rom:confirm',
@@ -19,9 +27,31 @@ export const IpcChannel = {
   EmulatorLaunch: 'emulator:launch',
   CatalogRefresh: 'catalog:refresh',
   CatalogList: 'catalog:list',
+  CatalogStats: 'catalog:stats',
   ModInstall: 'mod:install',
+  ModCancel: 'mod:cancel',
+  ModRemove: 'mod:remove',
+  ModReveal: 'mod:reveal',
+  StorageUsage: 'storage:usage',
+  StorageOpenFolder: 'storage:open-folder',
   ShellOpenExternal: 'shell:open-external'
 } as const
+
+export interface AppSettings {
+  theme: ThemeSource
+  appVersion: string
+}
+
+export interface CatalogStats {
+  count: number
+  refreshedAt: number | null
+}
+
+export interface StorageUsage {
+  patchedRomDir: string
+  fileCount: number
+  totalBytes: number
+}
 
 export interface RomVerification {
   verified: boolean

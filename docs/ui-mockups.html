@@ -1,0 +1,825 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ocaris — UI mockups</title>
+    <style>
+      /* ============================================================
+         BASE / CHROME (mockup shell, not part of any variant)
+         ============================================================ */
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        background: #0d0f14;
+        color: #e6e8ee;
+        font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+        font-size: 14px;
+      }
+      .shell { display: flex; flex-direction: column; height: 100vh; }
+      .shell-bar {
+        display: flex; align-items: center; gap: 12px;
+        padding: 8px 14px; background: #14171f;
+        border-bottom: 1px solid #262b36; flex-wrap: wrap;
+      }
+      .shell-bar h1 { font-size: 13px; margin: 0 8px 0 0; letter-spacing: .08em; text-transform: uppercase; color: #8b93a7; }
+      .tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+      .tabs button {
+        font: inherit; font-size: 12px; padding: 5px 10px; border-radius: 6px;
+        background: #1d222c; color: #b7bed0; border: 1px solid #2b313d; cursor: pointer;
+      }
+      .tabs button:hover { background: #252b37; color: #fff; }
+      .tabs button[aria-selected='true'] { background: #3d6df0; border-color: #3d6df0; color: #fff; }
+      .variant-note {
+        padding: 8px 16px; font-size: 12.5px; color: #8b93a7;
+        background: #11141b; border-bottom: 1px solid #262b36;
+      }
+      .variant-note b { color: #cfd6e6; font-weight: 600; }
+      .stage-wrap { flex: 1; overflow: auto; padding: 18px; }
+      .stage { display: none; max-width: 1180px; margin: 0 auto; }
+      .stage.active { display: block; }
+
+      /* app frame shared by all variants */
+      .app {
+        border-radius: 12px; overflow: hidden; min-height: 640px;
+        display: flex; flex-direction: column;
+        background: var(--bg); color: var(--fg);
+        border: 1px solid var(--line);
+        box-shadow: 0 18px 50px rgba(0,0,0,.45);
+      }
+      .app * { box-sizing: border-box; }
+
+      /* default token set — variants override */
+      .stage {
+        --bg: #12151c; --bg2: #171b24; --bg3: #1d222d;
+        --fg: #e6e8ee; --dim: #8e97ab; --line: #272d3a;
+        --accent: #4c7ef3; --accent-fg: #fff;
+        --ok: #3fbf7f; --warn: #e6b23c; --err: #ef5a5a;
+        --radius: 10px; --font: inherit;
+      }
+
+      /* ---------- shared primitives ---------- */
+      .topbar {
+        display: flex; align-items: center; gap: 12px;
+        padding: 12px 18px; border-bottom: 1px solid var(--line); background: var(--bg2);
+      }
+      .brand { font-weight: 700; letter-spacing: .02em; }
+      .brand small { display: block; font-weight: 400; font-size: 11px; color: var(--dim); letter-spacing: .1em; text-transform: uppercase; }
+      .spacer { flex: 1; }
+      .search {
+        background: var(--bg3); border: 1px solid var(--line); color: var(--fg);
+        border-radius: 999px; padding: 7px 14px; font: inherit; font-size: 13px; min-width: 220px;
+      }
+      .search::placeholder { color: var(--dim); }
+      .btn {
+        font: inherit; font-size: 13px; padding: 7px 14px; border-radius: 8px; cursor: pointer;
+        border: 1px solid var(--line); background: var(--bg3); color: var(--fg);
+      }
+      .btn:hover { border-color: var(--accent); }
+      .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
+      .btn.ghost { background: transparent; }
+      .btn.icon { padding: 7px 9px; }
+      .btn.sm { font-size: 12px; padding: 5px 10px; }
+      .btn[disabled] { opacity: .45; cursor: not-allowed; }
+
+      .thumb {
+        flex: none; border-radius: 8px; display: grid; place-items: center;
+        font-weight: 700; color: #fff; letter-spacing: .02em;
+        background: linear-gradient(135deg, var(--c1), var(--c2));
+        text-shadow: 0 1px 3px rgba(0,0,0,.4); overflow: hidden;
+      }
+
+      .badge {
+        display: inline-flex; align-items: center; gap: 5px;
+        font-size: 11px; padding: 2px 8px; border-radius: 999px;
+        border: 1px solid currentColor; line-height: 1.7;
+      }
+      .badge.ready { color: var(--ok); }
+      .badge.err { color: var(--err); }
+      .badge.dl { color: var(--accent); }
+      .badge.new { color: var(--dim); }
+      .badge.flat { border: none; background: var(--bg3); color: var(--dim); }
+      .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+      .bar { height: 4px; border-radius: 999px; background: var(--bg3); overflow: hidden; }
+      .bar > i { display: block; height: 100%; background: var(--accent); }
+
+      .muted { color: var(--dim); }
+      .clip { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .clip2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+      .statusline {
+        display: flex; align-items: center; gap: 10px; padding: 8px 18px;
+        border-top: 1px solid var(--line); background: var(--bg2);
+        font-size: 12px; color: var(--dim);
+      }
+
+      /* ============================================================
+         V1 — dense list
+         ============================================================ */
+      .v1 .list { padding: 6px 0; }
+      .v1 .row {
+        display: flex; align-items: center; gap: 14px; padding: 9px 18px;
+        border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+      }
+      .v1 .row:hover { background: var(--bg2); }
+      .v1 .thumb { width: 30px; height: 30px; font-size: 12px; border-radius: 6px; }
+      .v1 .name { font-weight: 600; }
+      .v1 .by { font-size: 12px; }
+      .v1 .col-name { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px; }
+      .v1 .col-status { width: 130px; font-size: 12px; }
+      .v1 .col-act { width: 104px; display: flex; justify-content: flex-end; }
+      .v1 .filters { display: flex; gap: 6px; padding: 10px 18px; border-bottom: 1px solid var(--line); }
+      .v1 .chip {
+        font-size: 12px; padding: 4px 11px; border-radius: 999px; cursor: pointer;
+        border: 1px solid var(--line); background: transparent; color: var(--dim);
+      }
+      .v1 .chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+      /* ============================================================
+         V2 — media rows (library)
+         ============================================================ */
+      .v2 { --bg: #0f1116; --bg2: #151922; --bg3: #1c212c; --accent: #5b8cff; }
+      .v2 .list { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+      .v2 .row {
+        display: flex; gap: 16px; padding: 14px; border-radius: var(--radius);
+        background: var(--bg2); border: 1px solid var(--line);
+      }
+      .v2 .row:hover { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); }
+      .v2 .thumb { width: 92px; height: 68px; font-size: 20px; }
+      .v2 .body { flex: 1; min-width: 0; }
+      .v2 .title { font-size: 15px; font-weight: 650; margin: 0 0 3px; }
+      .v2 .meta { display: flex; gap: 10px; align-items: center; font-size: 12px; color: var(--dim); margin-bottom: 6px; }
+      .v2 .desc { font-size: 12.5px; color: var(--dim); line-height: 1.5; }
+      .v2 .side { width: 150px; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 8px; }
+      .v2 .side .bar { width: 100%; }
+
+      /* ============================================================
+         V3 — card grid
+         ============================================================ */
+      .v3 { --bg: #0e1015; --bg2: #161a23; --accent: #7c5cff; }
+      .v3 .grid {
+        padding: 18px; display: grid; gap: 16px;
+        grid-template-columns: repeat(auto-fill, minmax(212px, 1fr));
+      }
+      .v3 .card {
+        background: var(--bg2); border: 1px solid var(--line); border-radius: 12px;
+        overflow: hidden; display: flex; flex-direction: column;
+      }
+      .v3 .card:hover { transform: translateY(-2px); border-color: var(--accent); }
+      .v3 .card { transition: transform .12s ease, border-color .12s ease; }
+      .v3 .thumb { width: 100%; height: 124px; border-radius: 0; font-size: 26px; }
+      .v3 .card-b { padding: 11px 12px 13px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+      .v3 .card-t { font-weight: 650; font-size: 14px; }
+      .v3 .card-a { font-size: 12px; color: var(--dim); }
+      .v3 .card-f { margin-top: auto; display: flex; align-items: center; gap: 8px; }
+      .v3 .card-f .btn { flex: 1; text-align: center; }
+
+      /* ============================================================
+         V4 — split master/detail
+         ============================================================ */
+      .v4 { --bg: #101319; --bg2: #161b24; --bg3: #1d2331; --accent: #2fb6a8; }
+      .v4 .split { flex: 1; display: grid; grid-template-columns: 320px 1fr; min-height: 0; }
+      .v4 .left { border-right: 1px solid var(--line); overflow: auto; }
+      .v4 .li {
+        display: flex; gap: 10px; align-items: center; padding: 10px 14px; cursor: pointer;
+        border-left: 3px solid transparent;
+      }
+      .v4 .li:hover { background: var(--bg2); }
+      .v4 .li.on { background: var(--bg3); border-left-color: var(--accent); }
+      .v4 .thumb { width: 34px; height: 34px; font-size: 13px; }
+      .v4 .li .n { font-size: 13px; font-weight: 600; }
+      .v4 .li .a { font-size: 11.5px; color: var(--dim); }
+      .v4 .right { padding: 24px 28px; overflow: auto; }
+      .v4 .hero { width: 100%; height: 168px; border-radius: 12px; font-size: 34px; margin-bottom: 18px; }
+      .v4 h2 { margin: 0 0 6px; font-size: 22px; }
+      .v4 .dl { display: grid; grid-template-columns: max-content 1fr; gap: 8px 18px; margin: 20px 0; font-size: 13px; }
+      .v4 .dl dt { color: var(--dim); }
+      .v4 .dl dd { margin: 0; font-family: ui-monospace, monospace; font-size: 12.5px; }
+      .v4 .actions { display: flex; gap: 10px; margin-top: 8px; }
+
+      /* ============================================================
+         V5 — sidebar + list
+         ============================================================ */
+      .v5 { --bg: #0f1218; --bg2: #141920; --bg3: #1b212a; --accent: #f0a13d; --accent-fg: #201400; }
+      .v5 .frame { flex: 1; display: grid; grid-template-columns: 208px 1fr; min-height: 0; }
+      .v5 .side { background: var(--bg2); border-right: 1px solid var(--line); padding: 16px 10px; }
+      .v5 .side h4 { font-size: 10.5px; text-transform: uppercase; letter-spacing: .12em; color: var(--dim); margin: 16px 8px 6px; }
+      .v5 .nav { display: flex; align-items: center; gap: 9px; padding: 7px 10px; border-radius: 7px; cursor: pointer; font-size: 13px; }
+      .v5 .nav:hover { background: var(--bg3); }
+      .v5 .nav.on { background: var(--bg3); color: var(--accent); font-weight: 600; }
+      .v5 .nav .k { margin-left: auto; font-size: 11px; color: var(--dim); }
+      .v5 .main { overflow: auto; }
+      .v5 .row {
+        display: flex; align-items: center; gap: 13px; padding: 11px 18px;
+        border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+      }
+      .v5 .row:hover { background: var(--bg2); }
+      .v5 .thumb { width: 40px; height: 40px; font-size: 14px; }
+      .v5 .n { font-weight: 620; }
+      .v5 .sub { font-size: 12px; color: var(--dim); }
+
+      /* ============================================================
+         V6 — table
+         ============================================================ */
+      .v6 { --bg: #0f1116; --bg2: #151820; --bg3: #1b1f29; --accent: #4c7ef3; }
+      .v6 table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      .v6 thead th {
+        text-align: left; font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+        color: var(--dim); font-weight: 600; padding: 10px 14px;
+        border-bottom: 1px solid var(--line); background: var(--bg2);
+        position: sticky; top: 0; cursor: pointer; white-space: nowrap;
+      }
+      .v6 thead th:hover { color: var(--fg); }
+      .v6 tbody td { padding: 9px 14px; border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent); }
+      .v6 tbody tr:hover { background: var(--bg2); }
+      .v6 .thumb { width: 26px; height: 26px; font-size: 11px; border-radius: 5px; }
+      .v6 .cellname { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+      .v6 td.num { font-family: ui-monospace, monospace; color: var(--dim); }
+      .v6 .tbl-wrap { overflow: auto; flex: 1; }
+
+      /* ============================================================
+         V7 — hero + list
+         ============================================================ */
+      .v7 { --bg: #0d1017; --bg2: #141a24; --bg3: #1b2230; --accent: #ff6b6b; }
+      .v7 .hero {
+        margin: 16px; padding: 26px 28px; border-radius: 14px; position: relative; overflow: hidden;
+        background: linear-gradient(120deg, #2b1c4d, #123049 60%, #0f2a3a);
+        border: 1px solid var(--line);
+      }
+      .v7 .hero:after {
+        content: ''; position: absolute; inset: 0;
+        background: radial-gradient(600px 200px at 88% 20%, rgba(255,180,90,.22), transparent 70%);
+      }
+      .v7 .hero > * { position: relative; }
+      .v7 .kick { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: #ffca7a; }
+      .v7 .hero h2 { font-size: 27px; margin: 8px 0 8px; }
+      .v7 .hero p { max-width: 520px; color: #c4cbdb; font-size: 13px; line-height: 1.6; margin: 0 0 16px; }
+      .v7 .sechead {
+        display: flex; align-items: center; gap: 10px; padding: 4px 20px 8px;
+        font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim);
+      }
+      .v7 .sechead:after { content: ''; flex: 1; height: 1px; background: var(--line); }
+      .v7 .row { display: flex; align-items: center; gap: 13px; padding: 10px 20px; }
+      .v7 .row:hover { background: var(--bg2); }
+      .v7 .thumb { width: 44px; height: 32px; font-size: 12px; }
+
+      /* ============================================================
+         V8 — grouped by status
+         ============================================================ */
+      .v8 { --bg: #101218; --bg2: #161a22; --bg3: #1c212b; --accent: #4ec9a0; --accent-fg: #062018; }
+      .v8 .group { margin: 16px 16px 22px; }
+      .v8 .ghead { display: flex; align-items: center; gap: 9px; margin-bottom: 9px; font-size: 12.5px; font-weight: 650; }
+      .v8 .ghead .count { font-size: 11px; color: var(--dim); font-weight: 400; }
+      .v8 .gbody { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--bg2); }
+      .v8 .row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; }
+      .v8 .row + .row { border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+      .v8 .row:hover { background: var(--bg3); }
+      .v8 .thumb { width: 32px; height: 32px; font-size: 12px; }
+
+      /* ============================================================
+         V9 — retro / cartridge theme
+         ============================================================ */
+      .v9 {
+        --bg: #12100c; --bg2: #191510; --bg3: #221c14; --fg: #f3e9d2;
+        --dim: #a2937a; --line: #3a3122; --accent: #d9a441; --accent-fg: #201603;
+        --font: 'Courier New', ui-monospace, monospace;
+      }
+      .v9 .app { font-family: var(--font); }
+      .v9 .topbar { background: linear-gradient(#241d13, #191510); }
+      .v9 .brand { letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+      .v9 .list { padding: 10px 14px; }
+      .v9 .row {
+        display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+        border: 1px solid transparent; border-radius: 6px;
+      }
+      .v9 .row:hover { border-color: var(--accent); background: var(--bg3); }
+      .v9 .row:before { content: '\25B6'; color: transparent; font-size: 10px; }
+      .v9 .row:hover:before { color: var(--accent); }
+      .v9 .thumb { width: 34px; height: 34px; border-radius: 3px; font-size: 12px; }
+      .v9 .n { text-transform: uppercase; letter-spacing: .06em; font-size: 13px; }
+      .v9 .sub { font-size: 11.5px; color: var(--dim); }
+      .v9 .btn { border-radius: 4px; text-transform: uppercase; font-size: 11px; letter-spacing: .08em; }
+      .v9 .statusline { letter-spacing: .06em; }
+
+      /* ============================================================
+         V10 — big-picture / cozy
+         ============================================================ */
+      .v10 { --bg: #0c0e13; --bg2: #151a24; --bg3: #1e2532; --accent: #63d2ff; --accent-fg: #04202b; --radius: 14px; }
+      .v10 .list { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+      .v10 .row {
+        display: flex; gap: 20px; padding: 16px; border-radius: 16px; align-items: center;
+        background: linear-gradient(100deg, var(--bg2), color-mix(in srgb, var(--bg2) 70%, var(--bg)));
+        border: 1px solid var(--line);
+      }
+      .v10 .row:hover { border-color: var(--accent); }
+      .v10 .thumb { width: 148px; height: 96px; font-size: 24px; border-radius: 12px; }
+      .v10 .title { font-size: 19px; font-weight: 700; margin: 0 0 4px; }
+      .v10 .desc { font-size: 13px; color: var(--dim); line-height: 1.55; max-width: 60ch; }
+      .v10 .side { margin-left: auto; display: flex; flex-direction: column; gap: 9px; align-items: stretch; min-width: 158px; }
+      .v10 .btn { padding: 11px 16px; font-size: 14px; }
+
+      /* ============================================================
+         MODAL LAYOUTS (A: tabs-top, B: sidebar, C: single scroll, D: wizard)
+         ============================================================ */
+      .scrim {
+        position: fixed; inset: 0; background: rgba(4,6,10,.62); backdrop-filter: blur(3px);
+        display: none; align-items: center; justify-content: center; padding: 26px; z-index: 50;
+      }
+      .scrim.open { display: flex; }
+      .modal {
+        width: min(720px, 100%); max-height: 100%; display: flex; flex-direction: column;
+        background: var(--bg2); color: var(--fg); border: 1px solid var(--line);
+        border-radius: 14px; overflow: hidden; box-shadow: 0 30px 90px rgba(0,0,0,.6);
+        font-family: var(--font);
+      }
+      .modal-h { display: flex; align-items: center; gap: 12px; padding: 15px 18px; border-bottom: 1px solid var(--line); }
+      .modal-h h3 { margin: 0; font-size: 15px; }
+      .modal-b { padding: 18px; overflow: auto; }
+      .modal-f { display: flex; gap: 10px; justify-content: flex-end; padding: 13px 18px; border-top: 1px solid var(--line); background: var(--bg); }
+      .mtabs { display: flex; gap: 4px; padding: 0 18px; border-bottom: 1px solid var(--line); }
+      .mtabs button {
+        font: inherit; font-size: 13px; background: none; border: none; color: var(--dim);
+        padding: 10px 12px; cursor: pointer; border-bottom: 2px solid transparent;
+      }
+      .mtabs button.on { color: var(--fg); border-bottom-color: var(--accent); }
+      .msplit { display: grid; grid-template-columns: 168px 1fr; min-height: 0; flex: 1; }
+      .mside { background: var(--bg); border-right: 1px solid var(--line); padding: 12px 8px; }
+      .mside button {
+        display: block; width: 100%; text-align: left; font: inherit; font-size: 13px;
+        background: none; border: none; color: var(--dim); padding: 8px 11px; border-radius: 7px; cursor: pointer;
+      }
+      .mside button.on { background: var(--bg3); color: var(--fg); }
+      .field { margin-bottom: 16px; }
+      .field label { display: block; font-size: 12px; color: var(--dim); margin-bottom: 5px; }
+      .field .ctl { display: flex; gap: 8px; }
+      .field input, .field select {
+        flex: 1; font: inherit; font-size: 13px; padding: 8px 11px; border-radius: 8px;
+        background: var(--bg); border: 1px solid var(--line); color: var(--fg);
+        font-family: ui-monospace, monospace;
+      }
+      .field .hint { font-size: 11.5px; color: var(--dim); margin-top: 5px; }
+      .emu-row {
+        display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+        border: 1px solid var(--line); border-radius: 9px; margin-bottom: 8px; background: var(--bg);
+      }
+      .emu-row .path { font-family: ui-monospace, monospace; font-size: 11.5px; color: var(--dim); }
+      .steps { display: flex; gap: 6px; align-items: center; padding: 14px 18px 0; }
+      .step { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--dim); }
+      .step .num {
+        width: 21px; height: 21px; border-radius: 50%; display: grid; place-items: center;
+        border: 1px solid var(--line); font-size: 11px;
+      }
+      .step.on { color: var(--fg); }
+      .step.on .num { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 700; }
+      .step.done .num { border-color: var(--ok); color: var(--ok); }
+      .step-line { flex: 1; height: 1px; background: var(--line); }
+      .sec-title { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); margin: 22px 0 10px; }
+      .sec-title:first-child { margin-top: 0; }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <div class="shell-bar">
+        <h1>Ocaris UI mockups</h1>
+        <div class="tabs" id="tabs"></div>
+      </div>
+      <div class="variant-note" id="note"></div>
+      <div class="stage-wrap" id="stages"></div>
+    </div>
+
+    <script>
+      /* ---------------- fake data ---------------- */
+      const MODS = [
+        { name: 'The Missing Link', author: 'Kenix', desc: 'A full-length quest set between Ocarina of Time and Majora\u2019s Mask. New dungeon, new items, fully voiced cutscenes.', completion: 'Complete', state: 'ready', c1: '#3b6ef0', c2: '#7b4bf0' },
+        { name: 'OoT Randomizer', author: 'OoTR Team', desc: 'Shuffles item locations, entrances, and dungeon layouts. The most-played OoT mod by a wide margin.', completion: 'Complete', state: 'ready', c1: '#0f9d84', c2: '#1e6ea8' },
+        { name: 'Dawn & Dusk', author: 'Nokaubure', desc: 'Overhauled overworld with a day/night questline and rebuilt Gerudo Valley.', completion: 'Complete', state: 'downloading', pct: 62, c1: '#e0873a', c2: '#c0405e' },
+        { name: 'Zelda\u2019s Birthday', author: 'SanguinettiMods', desc: 'Short, comedic romp. Good entry point \u2014 about two hours long.', completion: 'Complete', state: 'not_downloaded', c1: '#c94f8d', c2: '#7040c0' },
+        { name: 'The Sealed Palace', author: 'Tharo', desc: 'Single large dungeon focused on new puzzle mechanics and custom music.', completion: 'In development', state: 'not_downloaded', c1: '#4b7bd0', c2: '#2fae9c' },
+        { name: 'Ura Zelda Restoration', author: 'Zeldix', desc: 'Restores cut Master Quest content and beta assets from early builds.', completion: 'Beta', state: 'error', err: 'No matching .bps patch in archive', c1: '#8a6d3b', c2: '#5b4326' },
+        { name: 'Hylian Ruins', author: 'ShadowFire', desc: 'Exploration-first romhack with a rebuilt Hyrule Field and no time limit.', completion: 'Complete', state: 'not_downloaded', c1: '#3fa46b', c2: '#1f6f8b' },
+        { name: 'Chaos Edition', author: 'Glank', desc: 'Random effects fire every 15 seconds. Built for streams, not for sanity.', completion: 'Complete', state: 'ready', c1: '#e04f4f', c2: '#b0308f' }
+      ];
+      const initials = (n) => n.split(/[\s:]+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+      const thumb = (m, cls = '') => `<div class="thumb ${cls}" style="--c1:${m.c1};--c2:${m.c2}">${initials(m.name)}</div>`;
+
+      const STATE_LABEL = {
+        ready: '<span class="badge ready"><span class="dot"></span>Ready</span>',
+        downloading: '<span class="badge dl"><span class="dot"></span>Downloading</span>',
+        error: '<span class="badge err"><span class="dot"></span>Error</span>',
+        not_downloaded: '<span class="badge new">Not installed</span>'
+      };
+      const action = (m, extra = '') => {
+        if (m.state === 'ready') return `<button class="btn primary ${extra}">\u25B6 Play</button>`;
+        if (m.state === 'downloading') return `<button class="btn ${extra}">Cancel</button>`;
+        if (m.state === 'error') return `<button class="btn ${extra}">Retry</button>`;
+        return `<button class="btn ${extra}">Download</button>`;
+      };
+      const progress = (m) => `<div class="bar"><i style="width:${m.pct}%"></i></div>`;
+
+      /* ---------------- settings modal layouts ---------------- */
+      const F_ROM = `
+        <div class="field">
+          <label>ROM file \u2014 OoT 1.0 (U)</label>
+          <div class="ctl"><input value="D:\\ROMs\\zelda_oot_1.0_u.z64" readonly /><button class="btn">Browse\u2026</button></div>
+          <div class="hint"><span class="badge ready"><span class="dot"></span>Header CRC verified</span> &nbsp;compressed &nbsp;&middot;&nbsp; CRC1 EC7011B7</div>
+        </div>`;
+      const F_EMU = `
+        <div class="emu-row">
+          <div style="flex:1"><div style="font-weight:600">Ares <span class="badge flat">default</span></div><div class="path">C:\\Emulators\\ares\\ares.exe</div></div>
+          <button class="btn sm">Edit</button><button class="btn sm ghost">Remove</button>
+        </div>
+        <div class="emu-row">
+          <div style="flex:1"><div style="font-weight:600">Project64</div><div class="path">C:\\Program Files\\Project64\\Project64.exe</div></div>
+          <button class="btn sm">Edit</button><button class="btn sm ghost">Remove</button>
+        </div>
+        <button class="btn">+ Add emulator</button>
+        <div class="field" style="margin-top:18px">
+          <label>Launch arguments</label>
+          <div class="ctl"><input value="--fullscreen {romPath}" /></div>
+          <div class="hint"><code>{romPath}</code> is replaced with the patched ROM path.</div>
+        </div>`;
+      const F_CAT = `
+        <div class="field">
+          <label>Catalog source</label>
+          <div class="ctl"><select><option>hylianmodding.com</option><option>Local folder\u2026</option></select></div>
+          <div class="hint">41 OoT mods cached &middot; last refreshed 12 minutes ago</div>
+        </div>
+        <div class="field">
+          <label>Patched ROM output folder</label>
+          <div class="ctl"><input value="C:\\Users\\leo\\Documents\\Ocaris\\patched" readonly /><button class="btn">Browse\u2026</button></div>
+        </div>
+        <div class="field">
+          <label><input type="checkbox" checked style="flex:none;width:auto"> Refresh catalog on startup</label>
+        </div>`;
+
+      function modal(layout) {
+        if (layout === 'A') return `
+          <div class="modal">
+            <div class="modal-h"><h3>Settings</h3><div class="spacer"></div><button class="btn icon ghost" data-close>\u2715</button></div>
+            <div class="mtabs"><button class="on">ROM</button><button>Emulators</button><button>Catalog</button><button>About</button></div>
+            <div class="modal-b">${F_ROM}${F_CAT}</div>
+            <div class="modal-f"><button class="btn" data-close>Cancel</button><button class="btn primary" data-close>Save</button></div>
+          </div>`;
+        if (layout === 'B') return `
+          <div class="modal" style="height:min(520px,100%)">
+            <div class="modal-h"><h3>Settings</h3><div class="spacer"></div><button class="btn icon ghost" data-close>\u2715</button></div>
+            <div class="msplit">
+              <div class="mside">
+                <button class="on">ROM</button><button>Emulators</button><button>Catalog</button>
+                <button>Storage</button><button>About</button>
+              </div>
+              <div class="modal-b"><div class="sec-title">Emulators</div>${F_EMU}</div>
+            </div>
+            <div class="modal-f"><button class="btn" data-close>Close</button></div>
+          </div>`;
+        if (layout === 'C') return `
+          <div class="modal" style="width:min(580px,100%)">
+            <div class="modal-h"><h3>Settings</h3><div class="spacer"></div><button class="btn icon ghost" data-close>\u2715</button></div>
+            <div class="modal-b">
+              <div class="sec-title">ROM</div>${F_ROM}
+              <div class="sec-title">Emulators</div>${F_EMU}
+              <div class="sec-title">Catalog</div>${F_CAT}
+            </div>
+            <div class="modal-f"><button class="btn primary" data-close>Done</button></div>
+          </div>`;
+        return `
+          <div class="modal" style="width:min(600px,100%)">
+            <div class="modal-h"><h3>First-time setup</h3><div class="spacer"></div><button class="btn icon ghost" data-close>\u2715</button></div>
+            <div class="steps">
+              <div class="step done"><span class="num">\u2713</span>ROM</div><div class="step-line"></div>
+              <div class="step on"><span class="num">2</span>Emulator</div><div class="step-line"></div>
+              <div class="step"><span class="num">3</span>Catalog</div>
+            </div>
+            <div class="modal-b">
+              <p class="muted" style="margin-top:0;font-size:13px">Pick the emulator Ocaris should launch patched ROMs with.</p>
+              ${F_EMU}
+            </div>
+            <div class="modal-f"><button class="btn" data-close>Back</button><button class="btn primary" data-close>Continue</button></div>
+          </div>`;
+      }
+
+      /* ---------------- variants ---------------- */
+      const topbar = (right = '') => `
+        <div class="topbar">
+          <div class="brand">Ocaris<small>Mod launcher</small></div>
+          <div class="spacer"></div>
+          <input class="search" placeholder="Search mods\u2026" />
+          ${right}
+          <button class="btn">Refresh</button>
+          <button class="btn icon" data-open>\u2699</button>
+        </div>`;
+      const foot = (t) => `<div class="statusline">${t}</div>`;
+
+      const VARIANTS = [
+        {
+          id: 'v1', tab: '1 \u00b7 Dense list', modal: 'A',
+          note: '<b>Dense list.</b> Max mods per screen, fixed status + action columns, filter chips. Closest to a classic launcher; scales to 41+ rows without scrolling fatigue.',
+          html: () => `
+            <div class="app">
+              ${topbar()}
+              <div class="filters">
+                <button class="chip on">All 41</button><button class="chip">Ready 2</button>
+                <button class="chip">Downloading 1</button><button class="chip">Errors 1</button>
+              </div>
+              <div class="list">
+                ${MODS.map((m) => `
+                  <div class="row">
+                    ${thumb(m)}
+                    <div class="col-name"><span class="name clip">${m.name}</span><span class="by muted clip">${m.author}</span></div>
+                    <div class="col-status">${m.state === 'downloading' ? `<div class="muted" style="margin-bottom:4px">${m.pct}% \u00b7 4.1 MB</div>${progress(m)}` : m.state === 'error' ? `<span class="badge err clip" title="${m.err}">${m.err}</span>` : STATE_LABEL[m.state]}</div>
+                    <div class="col-act">${action(m, 'sm')}</div>
+                  </div>`).join('')}
+              </div>
+              ${foot('41 mods \u00b7 <span style="color:var(--ok)">ROM verified</span> \u00b7 Ares (default)')}
+            </div>`
+        },
+        {
+          id: 'v2', tab: '2 \u00b7 Media rows', modal: 'B',
+          note: '<b>Media rows.</b> Thumbnail + 2-line description per card-row. Best if the catalog thumbnails are worth showing; costs ~3x vertical space vs. variant 1.',
+          html: () => `
+            <div class="app">
+              ${topbar()}
+              <div class="list">
+                ${MODS.map((m) => `
+                  <div class="row">
+                    ${thumb(m)}
+                    <div class="body">
+                      <h3 class="title">${m.name}</h3>
+                      <div class="meta"><span>${m.author}</span>\u00b7<span>${m.completion}</span>\u00b7${STATE_LABEL[m.state]}</div>
+                      <div class="desc clip2">${m.state === 'error' ? `<span style="color:var(--err)">${m.err}</span> \u2014 open the mod page to download manually.` : m.desc}</div>
+                    </div>
+                    <div class="side">
+                      ${m.state === 'downloading' ? `<div class="muted" style="font-size:12px">${m.pct}%</div>${progress(m)}` : ''}
+                      ${action(m)}
+                      ${m.state === 'error' ? '<button class="btn sm ghost">Open page \u2197</button>' : ''}
+                    </div>
+                  </div>`).join('')}
+              </div>
+            </div>`
+        },
+        {
+          id: 'v3', tab: '3 \u00b7 Card grid', modal: 'A',
+          note: '<b>Card grid.</b> Poster-wall browsing, art-forward. Weak spot: status/progress text has nowhere good to live, and scanning by author is harder than a list.',
+          html: () => `
+            <div class="app">
+              ${topbar()}
+              <div class="grid">
+                ${MODS.map((m) => `
+                  <div class="card">
+                    ${thumb(m)}
+                    <div class="card-b">
+                      <div class="card-t clip">${m.name}</div>
+                      <div class="card-a clip">${m.author} \u00b7 ${m.completion}</div>
+                      ${m.state === 'downloading' ? progress(m) : ''}
+                      <div class="card-f">${action(m, 'sm')}${m.state === 'ready' ? '<button class="btn sm icon">\u22ef</button>' : ''}</div>
+                    </div>
+                  </div>`).join('')}
+              </div>
+            </div>`
+        },
+        {
+          id: 'v4', tab: '4 \u00b7 Split detail', modal: 'B',
+          note: '<b>Master / detail.</b> Narrow list left, full mod detail right \u2014 room for description, patch info, ROM match, error text, and per-mod emulator override. No navigation away from the list.',
+          html: () => {
+            const m = MODS[0];
+            return `
+            <div class="app">
+              ${topbar()}
+              <div class="split">
+                <div class="left">
+                  ${MODS.map((x, i) => `
+                    <div class="li ${i === 0 ? 'on' : ''}">
+                      ${thumb(x)}
+                      <div style="flex:1;min-width:0"><div class="n clip">${x.name}</div><div class="a clip">${x.author}</div></div>
+                      ${x.state === 'ready' ? '<span class="dot" style="color:var(--ok)"></span>' : x.state === 'error' ? '<span class="dot" style="color:var(--err)"></span>' : ''}
+                    </div>`).join('')}
+                </div>
+                <div class="right">
+                  ${thumb(m, 'hero')}
+                  <h2>${m.name}</h2>
+                  <div class="muted">by ${m.author} \u00b7 ${m.completion} \u00b7 hylianmodding.com</div>
+                  <div class="actions"><button class="btn primary">\u25B6 Play</button><button class="btn">Open folder</button><button class="btn ghost">Uninstall</button></div>
+                  <p style="line-height:1.65;color:var(--dim);font-size:13.5px">${m.desc}</p>
+                  <dl class="dl">
+                    <dt>Status</dt><dd>Ready</dd>
+                    <dt>Patched ROM</dt><dd>\u2026\\patched\\the-missing-link.z64</dd>
+                    <dt>Patch</dt><dd>missing-link-v1.2.bps \u00b7 CRC32 match</dd>
+                    <dt>Emulator</dt><dd>Ares (default)</dd>
+                  </dl>
+                </div>
+              </div>
+            </div>`;
+          }
+        },
+        {
+          id: 'v5', tab: '5 \u00b7 Sidebar nav', modal: 'B',
+          note: '<b>Sidebar + list.</b> Left rail owns navigation (Library / Browse / Downloads) and filters; settings can live as a rail item instead of a modal. Scales if catalog sources multiply.',
+          html: () => `
+            <div class="app">
+              ${topbar()}
+              <div class="frame">
+                <div class="side">
+                  <div class="nav on">\u25A4 Library <span class="k">2</span></div>
+                  <div class="nav">\u2295 Browse <span class="k">41</span></div>
+                  <div class="nav">\u2193 Downloads <span class="k">1</span></div>
+                  <h4>Filter</h4>
+                  <div class="nav">Ready to play</div>
+                  <div class="nav">Not installed</div>
+                  <div class="nav">Needs attention <span class="k" style="color:var(--err)">1</span></div>
+                  <h4>Source</h4>
+                  <div class="nav">hylianmodding</div>
+                  <h4>&nbsp;</h4>
+                  <div class="nav" data-open>\u2699 Settings</div>
+                </div>
+                <div class="main">
+                  ${MODS.map((m) => `
+                    <div class="row">
+                      ${thumb(m)}
+                      <div style="flex:1;min-width:0">
+                        <div class="n clip">${m.name}</div>
+                        <div class="sub clip">${m.author} \u00b7 ${m.completion}${m.state === 'error' ? ` \u00b7 <span style="color:var(--err)">${m.err}</span>` : ''}</div>
+                      </div>
+                      ${m.state === 'downloading' ? `<div style="width:120px">${progress(m)}<div class="sub" style="margin-top:4px">${m.pct}%</div></div>` : STATE_LABEL[m.state]}
+                      ${action(m, 'sm')}
+                    </div>`).join('')}
+                </div>
+              </div>
+              ${foot('Ares \u00b7 ROM verified \u00b7 catalog refreshed 12m ago')}
+            </div>`
+        },
+        {
+          id: 'v6', tab: '6 \u00b7 Table', modal: 'C',
+          note: '<b>Table.</b> Sortable columns (name / author / status / size / added). Highest information density and the only variant where sorting by "recently added" or "size" is natural. Least playful.',
+          html: () => `
+            <div class="app">
+              ${topbar()}
+              <div class="tbl-wrap">
+                <table>
+                  <thead><tr>
+                    <th>Mod \u2191</th><th>Author</th><th>Completion</th><th>Status</th><th>Size</th><th></th>
+                  </tr></thead>
+                  <tbody>
+                    ${MODS.map((m) => `
+                      <tr>
+                        <td><div class="cellname">${thumb(m)}${m.name}</div></td>
+                        <td class="muted">${m.author}</td>
+                        <td class="muted">${m.completion}</td>
+                        <td>${m.state === 'downloading' ? `<div style="width:110px">${progress(m)}</div>` : m.state === 'error' ? `<span class="badge err">${m.err}</span>` : STATE_LABEL[m.state]}</td>
+                        <td class="num">${['32.0 MB', '\u2014', '6.6 MB', '4.2 MB', '\u2014', '\u2014', '\u2014', '18.1 MB'][MODS.indexOf(m)]}</td>
+                        <td style="text-align:right">${action(m, 'sm')}</td>
+                      </tr>`).join('')}
+                  </tbody>
+                </table>
+              </div>
+              ${foot('41 mods \u00b7 sorted by name')}
+            </div>`
+        },
+        {
+          id: 'v7', tab: '7 \u00b7 Hero + list', modal: 'A',
+          note: '<b>Hero + list.</b> Featured/continue-playing banner on top, compact list below with section headers. Gives the app a front page; costs a screenful before the list starts.',
+          html: () => `
+            <div class="app">
+              ${topbar()}
+              <div class="hero">
+                <div class="kick">Continue playing</div>
+                <h2>The Missing Link</h2>
+                <p>A full-length quest set between Ocarina of Time and Majora\u2019s Mask. Patched and ready \u2014 last played 2 days ago.</p>
+                <button class="btn primary">\u25B6 Play</button>
+                <button class="btn ghost">Details</button>
+              </div>
+              <div class="sechead">Downloading</div>
+              ${MODS.filter((m) => m.state === 'downloading').map((m) => `
+                <div class="row">${thumb(m)}<div style="flex:1"><div style="font-weight:600">${m.name}</div><div class="muted" style="font-size:12px">${m.pct}% \u00b7 4.1 of 6.6 MB</div></div><div style="width:160px">${progress(m)}</div><button class="btn sm">Cancel</button></div>`).join('')}
+              <div class="sechead">All mods</div>
+              ${MODS.filter((m) => m.state !== 'downloading').map((m) => `
+                <div class="row">
+                  ${thumb(m)}
+                  <div style="flex:1;min-width:0"><div style="font-weight:600" class="clip">${m.name}</div><div class="muted clip" style="font-size:12px">${m.author} \u00b7 ${m.completion}</div></div>
+                  ${STATE_LABEL[m.state]}${action(m, 'sm')}
+                </div>`).join('')}
+            </div>`
+        },
+        {
+          id: 'v8', tab: '8 \u00b7 Grouped', modal: 'C',
+          note: '<b>Grouped by status.</b> Ready / Downloading / Needs attention / Available, each its own block. State is the primary organizer \u2014 errors are impossible to miss, but the "Available" group ends up holding 37 of 41 mods.',
+          html: () => {
+            const g = (title, color, arr, extra = '') => arr.length ? `
+              <div class="group">
+                <div class="ghead"><span class="dot" style="color:${color}"></span>${title}<span class="count">${arr.length}</span>${extra}</div>
+                <div class="gbody">
+                  ${arr.map((m) => `
+                    <div class="row">
+                      ${thumb(m)}
+                      <div style="flex:1;min-width:0">
+                        <div style="font-weight:620" class="clip">${m.name}</div>
+                        <div class="muted clip" style="font-size:12px">${m.state === 'error' ? m.err : m.state === 'downloading' ? `${m.pct}% \u00b7 4.1 of 6.6 MB` : `${m.author} \u00b7 ${m.completion}`}</div>
+                      </div>
+                      ${m.state === 'downloading' ? `<div style="width:130px">${progress(m)}</div>` : ''}
+                      ${action(m, 'sm')}
+                    </div>`).join('')}
+                </div>
+              </div>` : '';
+            return `
+            <div class="app">
+              ${topbar()}
+              ${g('Ready to play', 'var(--ok)', MODS.filter((m) => m.state === 'ready'))}
+              ${g('Downloading', 'var(--accent)', MODS.filter((m) => m.state === 'downloading'))}
+              ${g('Needs attention', 'var(--err)', MODS.filter((m) => m.state === 'error'))}
+              ${g('Available', 'var(--dim)', MODS.filter((m) => m.state === 'not_downloaded'), '<span class="spacer"></span><button class="btn sm ghost">Show all 37</button>')}
+            </div>`;
+          }
+        },
+        {
+          id: 'v9', tab: '9 \u00b7 Cartridge', modal: 'D',
+          note: '<b>Cartridge / retro theme.</b> Same dense-list structure as variant 1, dressed in N64-era gold-on-brown with a mono face. Purely a skin question \u2014 pair it with any layout above. Modal shown here is the first-run wizard.',
+          html: () => `
+            <div class="app">
+              ${topbar()}
+              <div class="list">
+                ${MODS.map((m) => `
+                  <div class="row">
+                    ${thumb(m)}
+                    <div style="flex:1;min-width:0">
+                      <div class="n clip">${m.name}</div>
+                      <div class="sub clip">${m.author} \u2014 ${m.completion}</div>
+                    </div>
+                    ${m.state === 'downloading' ? `<div style="width:140px">${progress(m)}<div class="sub" style="margin-top:4px">${m.pct}%</div></div>` : `<div class="sub" style="width:110px">${m.state === 'ready' ? '\u25CF READY' : m.state === 'error' ? '<span style="color:var(--err)">\u25CF ERROR</span>' : '\u25CB NOT INSTALLED'}</div>`}
+                    ${action(m, 'sm')}
+                  </div>`).join('')}
+              </div>
+              ${foot('ROM: ZELDA OCARINA OF TIME \u00b7 CRC OK \u00b7 EMU: ARES')}
+            </div>`
+        },
+        {
+          id: 'v10', tab: '10 \u00b7 Big picture', modal: 'D',
+          note: '<b>Big-picture rows.</b> Few, large, touch/controller-sized rows with big art and one obvious action. Great for a 6-mod library, bad for browsing 41 \u2014 needs a separate compact Browse view.',
+          html: () => `
+            <div class="app">
+              ${topbar()}
+              <div class="list">
+                ${MODS.slice(0, 5).map((m) => `
+                  <div class="row">
+                    ${thumb(m)}
+                    <div style="min-width:0">
+                      <h3 class="title">${m.name}</h3>
+                      <div class="muted" style="font-size:12.5px;margin-bottom:7px">${m.author} \u00b7 ${m.completion} \u00b7 ${STATE_LABEL[m.state]}</div>
+                      <div class="desc clip2">${m.desc}</div>
+                    </div>
+                    <div class="side">
+                      ${m.state === 'downloading' ? `${progress(m)}<div class="muted" style="font-size:12px;text-align:center">${m.pct}%</div>` : ''}
+                      ${action(m)}
+                      <button class="btn ghost sm">Details</button>
+                    </div>
+                  </div>`).join('')}
+              </div>
+            </div>`
+        }
+      ];
+
+      /* ---------------- mount ---------------- */
+      const tabsEl = document.getElementById('tabs');
+      const stagesEl = document.getElementById('stages');
+      const noteEl = document.getElementById('note');
+
+      VARIANTS.forEach((v, i) => {
+        const b = document.createElement('button');
+        b.textContent = v.tab;
+        b.setAttribute('aria-selected', String(i === 0));
+        b.onclick = () => select(i);
+        tabsEl.appendChild(b);
+
+        const s = document.createElement('div');
+        s.className = `stage ${v.id}` + (i === 0 ? ' active' : '');
+        s.innerHTML = v.html() + `<div class="scrim">${modal(v.modal)}</div>`;
+        stagesEl.appendChild(s);
+
+        const scrim = s.querySelector('.scrim');
+        s.querySelectorAll('[data-open]').forEach((el) => (el.onclick = () => scrim.classList.add('open')));
+        scrim.onclick = (e) => { if (e.target === scrim || e.target.closest('[data-close]')) scrim.classList.remove('open'); };
+        // click-to-select for tab strips, filter chips, sidebar nav, and list rows
+        s.querySelectorAll('.mtabs button, .mside button, .chip, .nav, .li').forEach((el) => {
+          el.addEventListener('click', () => {
+            [...el.parentElement.children].forEach((x) => x.classList.remove('on'));
+            el.classList.add('on');
+          });
+        });
+      });
+
+      function select(i) {
+        [...tabsEl.children].forEach((b, j) => b.setAttribute('aria-selected', String(i === j)));
+        [...stagesEl.children].forEach((s, j) => s.classList.toggle('active', i === j));
+        noteEl.innerHTML = VARIANTS[i].note + ` &nbsp;&middot;&nbsp; settings modal: layout ${VARIANTS[i].modal} (click \u2699)`;
+        window.scrollTo(0, 0);
+      }
+      select(0);
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') document.querySelectorAll('.scrim.open').forEach((s) => s.classList.remove('open'));
+        if (/^[1-9]$/.test(e.key)) select(+e.key - 1);
+        if (e.key === '0') select(9);
+      });
+    </script>
+  </body>
+</html>

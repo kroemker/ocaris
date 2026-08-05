@@ -13,7 +13,9 @@ describe('runMigrations', () => {
       { id: 1, name: 'initial_schema_version_table' },
       { id: 2, name: 'app_config' },
       { id: 3, name: 'emulators' },
-      { id: 4, name: 'mods' }
+      { id: 4, name: 'mods' },
+      { id: 5, name: 'app_config_theme' },
+      { id: 6, name: 'mods_first_seen_at' }
     ])
 
     db.close()
@@ -28,7 +30,39 @@ describe('runMigrations', () => {
     const count = db.prepare('SELECT COUNT(*) as count FROM schema_migrations').get() as {
       count: number
     }
-    expect(count.count).toBe(4)
+    expect(count.count).toBe(6)
+
+    db.close()
+  })
+
+  it('gives app_config a theme column defaulting to system', () => {
+    const db = new Database(':memory:')
+    runMigrations(db)
+
+    db.prepare('INSERT INTO app_config (id, rom_path) VALUES (1, ?)').run('/roms/oot.z64')
+    const row = db.prepare('SELECT theme FROM app_config WHERE id = 1').get() as { theme: string }
+
+    expect(row.theme).toBe('system')
+
+    db.close()
+  })
+
+  it('backfills first_seen_at on existing mods', () => {
+    const db = new Database(':memory:')
+
+    // Migrate up to the point before first_seen_at existed, insert a row the
+    // way the old schema would have, then finish migrating.
+    runMigrations(db, 4)
+    db.prepare(
+      `INSERT INTO mods (id, source, source_id, name, fetched_at) VALUES (?, ?, ?, ?, ?)`
+    ).run('src:1', 'src', '1', 'Old mod', 1234)
+
+    runMigrations(db)
+
+    const row = db.prepare('SELECT first_seen_at FROM mods WHERE id = ?').get('src:1') as {
+      first_seen_at: number
+    }
+    expect(row.first_seen_at).toBe(1234)
 
     db.close()
   })

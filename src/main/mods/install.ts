@@ -22,6 +22,16 @@ function safeFileStem(id: string): string {
 }
 
 /**
+ * An aborted fetch surfaces as an AbortError, but a signal that fires between
+ * steps (after the download, before the patch) can also surface as an ordinary
+ * error, so the signal itself is the more reliable half of this check.
+ */
+function isAbort(err: unknown, signal?: AbortSignal): boolean {
+  if (signal?.aborted) return true
+  return err instanceof Error && err.name === 'AbortError'
+}
+
+/**
  * Downloads a mod's patch (a bare .bps, or a .zip containing one or more -
  * see docs/catalog-source-spec.md) and applies it to the verified base ROM,
  * updating mod_status through the whole lifecycle. Never rejects - any
@@ -29,6 +39,9 @@ function safeFileStem(id: string): string {
  * resolves to an 'error' status with a descriptive message rather than
  * throwing, so callers don't need a try/catch to handle the expected
  * failure modes.
+ *
+ * Cancelling via `signal` is not a failure: it resolves to 'not_downloaded'
+ * with the progress fields cleared, so the mod simply looks uninstalled again.
  */
 export async function installMod(input: InstallModInput): Promise<ModStatus> {
   const { db, modId, downloadUrl, romPath, patchCacheDir, patchedRomDir } = input
@@ -90,6 +103,20 @@ export async function installMod(input: InstallModInput): Promise<ModStatus> {
       errorMessage: null
     })
   } catch (err) {
+    // A cancellation is the user's own doing, not a failure: it goes back to
+    // 'not_downloaded' with no error message, so the row offers Download again
+    // instead of showing a red error for something they asked for.
+    if (isAbort(err, input.signal)) {
+      return setModStatus(db, modId, {
+        state: 'not_downloaded',
+        patchFilePath: null,
+        patchedRomPath: null,
+        downloadProgressBytes: null,
+        downloadTotalBytes: null,
+        errorMessage: null
+      })
+    }
+
     const message = err instanceof Error ? err.message : String(err)
     return setModStatus(db, modId, { state: 'error', errorMessage: message })
   }

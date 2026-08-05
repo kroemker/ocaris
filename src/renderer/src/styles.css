@@ -1,35 +1,24 @@
-:root {
-  color-scheme: light dark;
-  font-family:
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    sans-serif;
+@import './styles/tokens.css';
+@import './styles/app.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
 }
 
 body {
+  /* The app frame scrolls its own list; the window itself never scrolls. */
   margin: 0;
-  padding: 2rem;
-}
-
-button {
-  font-size: 1rem;
-  padding: 0.5rem 1rem;
-  cursor: pointer;
-}
-
-dl {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 0.25rem 1rem;
-  margin-top: 1.5rem;
-}
-
-dt {
-  font-weight: 600;
-}
-
-dd {
-  margin: 0;
-  font-family: ui-monospace, monospace;
+  overflow: hidden;
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--fg);
+  background: var(--page);
 }

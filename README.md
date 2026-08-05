@@ -30,11 +30,18 @@ src/main/emulator   Emulator executable-path validation
 src/main/download   Generic HTTP download engine (streaming, progress, cancellation)
 src/main/catalog    Pluggable ModCatalogSource interface + hylianmodding.com adapter
 src/main/mods       Mod install pipeline (download patch -> apply -> ready)
+src/main/storage    Where patches, patched ROMs and cached thumbnails live
+src/main/thumbnails Thumbnail download/downscale cache + ocaris-thumb:// handler
+src/main/window     Title-bar overlay colors for the current theme
 src/preload         contextBridge-exposed, typed API surface for the renderer
 src/renderer        React app
+src/renderer/src/lib     Pure view logic (filter/sort/status-to-actions), no React
+src/renderer/src/styles  Design tokens + component styles
+src/renderer/src/theme   Theme preference hook and provider
 src/shared          Types/constants shared between main and renderer (e.g. IPC contract)
 src/patch           BPS patch engine - no Electron dependency, plain Node/TS
 tests/main          Unit tests for main-process modules
+tests/renderer      Unit tests for the renderer's pure view logic
 tests/patch         Unit tests for the patch engine
 ```
 
@@ -54,7 +61,11 @@ This module has no Electron dependency and only deals with in-memory buffers; th
 
 ## Data layer
 
-SQLite schema covers four entities: `app_config` (verified ROM), `emulators`, `mods` (catalog cache), and `mod_status` (per-mod download/patch state). `mods`/`mod_status` are split so a catalog refresh (`upsertMods`) can update a mod's metadata without ever resetting its in-progress or completed download - only mods the app has never seen before get a fresh `not_downloaded` status row.
+SQLite schema covers four entities: `app_config` (verified ROM + theme preference), `emulators`, `mods` (catalog cache), and `mod_status` (per-mod download/patch state). `mods`/`mod_status` are split so a catalog refresh (`upsertMods`) can update a mod's metadata without ever resetting its in-progress or completed download - only mods the app has never seen before get a fresh `not_downloaded` status row.
+
+`mods.fetched_at` is rewritten on every refresh, so it means "last seen in the catalog", not "added". `mods.first_seen_at` is set on insert and deliberately left out of `upsertMods`' conflict clause, which is what makes a "recently added" sort possible later; existing rows were backfilled from `fetched_at`, so it only becomes meaningful from the next new mod onward.
+
+`runMigrations(db, upToId?)` takes an optional stop point. That's for tests: it's the only way to build the pre-migration schema, insert a row the old way, and check that a backfill actually backfills.
 
 ## Catalog source
 
@@ -72,21 +83,55 @@ Verified against the real live site (not just recorded fixtures) during developm
 
 `src/main/emulator/launch.ts` spawns a configured emulator with a patched ROM's path substituted into its argument template, detached from Ocaris so the emulator keeps running if Ocaris closes. `buildArgv()` splits the template on whitespace _before_ substituting `{romPath}`, so a ROM path containing spaces stays one argv entry instead of being split apart. `launchEmulator()` waits for Node's `spawn`/`error` events rather than assuming `child_process.spawn()` succeeded synchronously - it returns a `ChildProcess` even for a nonexistent executable - so a bad emulator path rejects with a descriptive `LaunchError` instead of failing silently.
 
-The "Play" button lives in the mod catalog UI (below) once a mod reaches the `ready` state.
+The "Play" button lives in the library view (below) once a mod reaches the `ready` state.
 
-## Mod catalog UI
+## Library view
 
-`CatalogBrowser` (`src/renderer/src/components/CatalogBrowser.tsx`) ties everything above together: refresh the catalog, browse cached mods, and per mod - `Download` (not-downloaded), a live progress line (`downloading`, polling `catalog:list` every 750ms while any mod is downloading, since `installMod`'s progress callback already writes to `mod_status` on every chunk), `Play` (`ready`, disabled until an emulator is configured), or the error message plus `Retry` and an `Open download page` button for mods Ocaris can't install automatically (`shell:open-external`, restricted to `http(s)://` URLs).
+The main view is a list of media rows - thumbnail, title, author and completion status, a two-line description, and a right rail with the mod's status above its actions. `src/renderer/src/App.tsx` owns the data and the IPC calls; the rows are `ModRow`/`ModRowActions`, the state filters are `FilterChips`.
 
-Verified end-to-end through the real rendered UI (not just IPC calls): seeded a mod pointing at a local HTTP server serving a `.zip` with two `.bps` candidates (one deliberately for the wrong ROM), clicked the actual `Download` button, and watched it correctly pick the matching patch, apply it, write the exact expected patched ROM bytes to disk, and flip to a `Play` button - the brief's "wire catalog → download → patch → play end-to-end for a single mod" milestone.
+Which buttons a row offers is decided by `actionsFor()` in `src/renderer/src/lib/library.ts`, which returns them as data rather than markup: `Download` (not-downloaded), `Cancel` plus a live progress bar (downloading), `Play`/`Folder`/`Remove` (ready), or `Retry` plus `Open page` (error). Filtering, sorting and progress formatting live in the same module. Keeping that logic free of React is what lets `tests/renderer/library.test.ts` cover it in the existing Node test environment - no jsdom, no testing-library, no config change.
 
-## First-run flow and other UX polish
+Progress comes from polling `catalog:list` every 750ms while any mod is downloading, since `installMod` already writes progress to `mod_status` on every chunk. Downloads are uncapped: several mods can install at once, and `mod:cancel` aborts one by id without touching the others.
 
-`App.tsx` gates the UI in setup order: `EmulatorSetup` only renders once a ROM is configured, and `CatalogBrowser` only once at least one emulator exists too - each gate shows guidance pointing at the previous step instead of an empty/broken-looking section. `RomSetup`/`EmulatorSetup` report their state up to `App` via an `onConfigChange`/`onChange` prop (called after every successful mutation, not just on mount) rather than a bigger state-management refactor.
+Filter chip counts are computed against the search-filtered pool, so search and filters compose - typing narrows every chip, not just the list. Search matches names and authors only; a match inside a description would fire on text the row clamps to two lines.
 
-`CatalogBrowser` also got a `Browse all` / `My library` toggle (library = `ready` mods only), and a real bug fix: `handlePlay` previously let a failed `emulator:launch` call disappear as an unhandled rejection - it's now caught and shown the same way other errors in this component are.
+An error replaces a row's description rather than sitting next to it, and `Remove` confirms inline in the rail instead of opening a dialog (re-downloading rebuilds the file).
 
-Not done: a shared toast/notification component (each section already surfaces its own errors inline via `role="alert"`, which covers the same ground without a new abstraction) and a single consolidated "library" view separate from the catalog browser (the toggle above covers the same need without a second component).
+Verified end-to-end through the real rendered UI (not just IPC calls): seeded a mod pointing at a local HTTP server serving a `.zip` with two `.bps` candidates (one deliberately for the wrong ROM), clicked the actual `Download` button, and watched it correctly pick the matching patch, apply it, write the exact expected patched ROM bytes to disk, and flip to a `Play` button - the brief's "wire catalog -> download -> patch -> play end-to-end for a single mod" milestone.
+
+## Settings dialog
+
+ROM and emulator setup are panes of a settings dialog (`src/renderer/src/components/settings/`), not sections stacked in the main view, alongside Appearance, Catalog, Storage and About.
+
+It's a native `<dialog>` opened with `showModal()`, which brings Esc-to-close, the backdrop, a focus trap and focus restore with it. Its `onClose` fires for Esc as well as an explicit close, so that's the single place that reports the dialog is no longer open.
+
+The Storage pane is read-only: `src/main/storage/paths.ts` is the only thing that decides where patches and patched ROMs live, so making those configurable later is a change in one file rather than a hunt through call sites. `storage:open-folder` takes no path from the renderer - it can only open the app's own directory.
+
+## Theming
+
+One token set in `src/renderer/src/styles/tokens.css`: `:root` is the dark theme, `:root[data-theme='light']` overrides it. The light theme darkens accent/ok/warn/err rather than reusing the dark values, which fail contrast on white.
+
+The preference (`system` | `light` | `dark`) is stored in `app_config.theme` and applied to `nativeTheme.themeSource`. That's what makes `prefers-color-scheme` in the renderer reflect a pinned choice, so `useTheme()` resolves `system` through a single media query and writes `data-theme` on `<html>`. Main applies the stored theme before the first window so `backgroundColor` is painted in the right theme instead of flashing.
+
+## Window chrome
+
+The app's top bar _is_ the window title bar (`titleBarStyle: 'hidden'` plus a `titleBarOverlay`), so there aren't two bars stacked. The overlay's colors are re-applied on every `nativeTheme` `updated` event - that covers both an explicit theme change and the OS flipping while the preference is `system`.
+
+The bar is a drag region with every interactive descendant opted back out; miss one and it stops responding to clicks and moves the window instead. Space for the native window controls comes from `env(titlebar-area-*)` rather than a fixed inset, since the controls sit right on Windows/Linux and left on macOS, where the overlay colors are ignored entirely. `setTitleBarOverlay` throws where no overlay is drawn, so `src/main/window/titleBar.ts` swallows that.
+
+## Thumbnails
+
+What the catalog calls a thumbnail is a full screenshot - measured against the live source, up to 1280x720 and half a megabyte, roughly 8 MB across the catalog, for a 104px box in the row. A catalog refresh downloads any image not already cached into `userData/thumbs`, downscaling to 3x the box with `nativeImage` (no image dependency, nothing new to build at packaging time), and the renderer loads them through an `ocaris-thumb://` handler - `img-src` allows that scheme and no remote host.
+
+Failures are per thumbnail and never propagate: a 404, or a response that isn't a decodable image, just leaves that mod without a cached file, and the row falls back to a generated placeholder tile. The handler takes a mod id and nothing else, and the same sanitisation used for cache file names strips anything outside `[A-Za-z0-9_-]`, so a crafted URL can't escape the cache directory.
+
+Row thumbnails are 4:3 with `object-fit: cover` - the N64's native ratio, and 12 of 18 sampled catalog images match it. The 16:9 minority loses about 17% off each side.
+
+## First run and empty states
+
+A missing ROM owns the whole view and opens settings on the ROM pane on first launch - nothing in the library is usable without one. A missing emulator deliberately does not: mods still browse, download and patch, and only `Play` is disabled. There are three other empty states (nothing cached yet, no matches for the current filter/search, and the ROM case) and one dismissible error banner under the top bar for refresh and launch failures; per-mod install errors stay in their row, next to the retry button.
+
+Filter/sort/search are not persisted across restarts - the app always opens on All / Name (A-Z).
 
 ## Packaging
 

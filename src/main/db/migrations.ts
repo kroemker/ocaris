@@ -83,10 +83,37 @@ const migrations: Migration[] = [
         );
       `)
     }
+  },
+  {
+    id: 5,
+    name: 'app_config_theme',
+    up: (db) => {
+      db.exec(`ALTER TABLE app_config ADD COLUMN theme TEXT NOT NULL DEFAULT 'system';`)
+    }
+  },
+  {
+    id: 6,
+    name: 'mods_first_seen_at',
+    up: (db) => {
+      // fetched_at is rewritten on every catalog refresh, so it can't answer
+      // "when did this mod first appear". first_seen_at is set on insert and
+      // never updated; existing rows are backfilled with what we do know.
+      db.exec(`
+        ALTER TABLE mods ADD COLUMN first_seen_at INTEGER;
+        UPDATE mods SET first_seen_at = fetched_at WHERE first_seen_at IS NULL;
+      `)
+    }
   }
 ]
 
-export function runMigrations(db: Database.Database): void {
+/**
+ * Applies every migration the database hasn't seen yet.
+ *
+ * `upToId` stops after that migration, which lets tests reproduce an older
+ * schema and then migrate onto it - the only way to check that a backfill
+ * actually backfills.
+ */
+export function runMigrations(db: Database.Database, upToId = Number.POSITIVE_INFINITY): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       id INTEGER PRIMARY KEY,
@@ -111,7 +138,8 @@ export function runMigrations(db: Database.Database): void {
     )
   })
 
-  for (const migration of migrations.sort((a, b) => a.id - b.id)) {
+  for (const migration of [...migrations].sort((a, b) => a.id - b.id)) {
+    if (migration.id > upToId) break
     if (!appliedIds.has(migration.id)) {
       applyMigration(migration)
     }
