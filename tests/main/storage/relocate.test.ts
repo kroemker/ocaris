@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import Database from 'better-sqlite3'
+import { saveRomConfig } from '../../../src/main/db/appConfig'
 import { runMigrations } from '../../../src/main/db/migrations'
 import { modId, setModStatus, upsertMods, type ModRecord } from '../../../src/main/db/mods'
 import { assertWritableDirectory, relocateStorage } from '../../../src/main/storage/relocate'
@@ -26,39 +27,53 @@ const sampleMod: ModRecord = {
   metadata: null
 }
 
+interface Dirs {
+  oldPatchCacheDir: string
+  oldPatchedRomDir: string
+  oldBaseRomDir: string
+  newPatchCacheDir: string
+  newPatchedRomDir: string
+  newBaseRomDir: string
+}
+
+function freshDirs(): Dirs {
+  const newRoot = tmp('ocaris-new-')
+  return {
+    oldPatchCacheDir: tmp('ocaris-old-patches-'),
+    oldPatchedRomDir: tmp('ocaris-old-roms-'),
+    oldBaseRomDir: tmp('ocaris-old-base-'),
+    newPatchCacheDir: join(newRoot, 'patches'),
+    newPatchedRomDir: join(newRoot, 'roms'),
+    newBaseRomDir: join(newRoot, 'base')
+  }
+}
+
 describe('relocateStorage', () => {
   it('moves patch and ROM files and rewrites mod_status paths', async () => {
     const db = createDb()
     upsertMods(db, [sampleMod])
     const id = modId('hylianmodding', '42')
+    const dirs = freshDirs()
 
-    const oldPatchCacheDir = tmp('ocaris-old-patches-')
-    const oldPatchedRomDir = tmp('ocaris-old-roms-')
-    const newRoot = tmp('ocaris-new-')
-    const newPatchCacheDir = join(newRoot, 'patches')
-    const newPatchedRomDir = join(newRoot, 'roms')
-
-    writeFileSync(join(oldPatchCacheDir, 'hylianmodding_42.bps'), 'patch-bytes')
-    writeFileSync(join(oldPatchedRomDir, 'hylianmodding_42.z64'), 'rom-bytes')
+    writeFileSync(join(dirs.oldPatchCacheDir, 'hylianmodding_42.bps'), 'patch-bytes')
+    writeFileSync(join(dirs.oldPatchedRomDir, 'hylianmodding_42.z64'), 'rom-bytes')
 
     setModStatus(db, id, {
       state: 'ready',
-      patchFilePath: join(oldPatchCacheDir, 'hylianmodding_42.bps'),
-      patchedRomPath: join(oldPatchedRomDir, 'hylianmodding_42.z64')
+      patchFilePath: join(dirs.oldPatchCacheDir, 'hylianmodding_42.bps'),
+      patchedRomPath: join(dirs.oldPatchedRomDir, 'hylianmodding_42.z64')
     })
 
-    await relocateStorage({
-      db,
-      oldPatchCacheDir,
-      oldPatchedRomDir,
-      newPatchCacheDir,
-      newPatchedRomDir
-    })
+    await relocateStorage({ db, ...dirs })
 
-    expect(existsSync(join(oldPatchCacheDir, 'hylianmodding_42.bps'))).toBe(false)
-    expect(existsSync(join(oldPatchedRomDir, 'hylianmodding_42.z64'))).toBe(false)
-    expect(readFileSync(join(newPatchCacheDir, 'hylianmodding_42.bps'), 'utf8')).toBe('patch-bytes')
-    expect(readFileSync(join(newPatchedRomDir, 'hylianmodding_42.z64'), 'utf8')).toBe('rom-bytes')
+    expect(existsSync(join(dirs.oldPatchCacheDir, 'hylianmodding_42.bps'))).toBe(false)
+    expect(existsSync(join(dirs.oldPatchedRomDir, 'hylianmodding_42.z64'))).toBe(false)
+    expect(readFileSync(join(dirs.newPatchCacheDir, 'hylianmodding_42.bps'), 'utf8')).toBe(
+      'patch-bytes'
+    )
+    expect(readFileSync(join(dirs.newPatchedRomDir, 'hylianmodding_42.z64'), 'utf8')).toBe(
+      'rom-bytes'
+    )
 
     const status = db.prepare('SELECT * FROM mod_status WHERE mod_id = ?').get(id) as {
       state: string
@@ -66,27 +81,46 @@ describe('relocateStorage', () => {
       patched_rom_path: string
     }
     expect(status.state).toBe('ready')
-    expect(status.patch_file_path).toBe(join(newPatchCacheDir, 'hylianmodding_42.bps'))
-    expect(status.patched_rom_path).toBe(join(newPatchedRomDir, 'hylianmodding_42.z64'))
+    expect(status.patch_file_path).toBe(join(dirs.newPatchCacheDir, 'hylianmodding_42.bps'))
+    expect(status.patched_rom_path).toBe(join(dirs.newPatchedRomDir, 'hylianmodding_42.z64'))
 
     db.close()
   })
 
-  it('is a no-op when nothing has been downloaded yet', async () => {
+  it('moves the base ROM copy and rewrites app_config.rom_path', async () => {
     const db = createDb()
-    const oldPatchCacheDir = join(tmp('ocaris-old-'), 'patches')
-    const oldPatchedRomDir = join(tmpdir(), 'does-not-exist-roms')
-    const newRoot = tmp('ocaris-new-')
+    const dirs = freshDirs()
 
-    await expect(
-      relocateStorage({
-        db,
-        oldPatchCacheDir,
-        oldPatchedRomDir,
-        newPatchCacheDir: join(newRoot, 'patches'),
-        newPatchedRomDir: join(newRoot, 'roms')
-      })
-    ).resolves.toBeUndefined()
+    const oldRomPath = join(dirs.oldBaseRomDir, 'base.z64')
+    writeFileSync(oldRomPath, 'base-rom-bytes')
+    const saved = saveRomConfig(db, {
+      romPath: oldRomPath,
+      romVariant: 'decompressed',
+      romVerified: true,
+      romUserConfirmed: true
+    })
+
+    await relocateStorage({ db, ...dirs })
+
+    expect(existsSync(oldRomPath)).toBe(false)
+    const newRomPath = join(dirs.newBaseRomDir, 'base.z64')
+    expect(readFileSync(newRomPath, 'utf8')).toBe('base-rom-bytes')
+
+    const row = db.prepare('SELECT rom_path FROM app_config WHERE id = 1').get() as {
+      rom_path: string
+    }
+    expect(row.rom_path).toBe(newRomPath)
+    // Only the path moved - nothing else about the ROM config changed.
+    expect(saved.romVariant).toBe('decompressed')
+
+    db.close()
+  })
+
+  it('is a no-op when nothing has been downloaded or configured yet', async () => {
+    const db = createDb()
+    const dirs = freshDirs()
+
+    await expect(relocateStorage({ db, ...dirs })).resolves.toBeUndefined()
 
     db.close()
   })
@@ -100,8 +134,10 @@ describe('relocateStorage', () => {
       db,
       oldPatchCacheDir: dir,
       oldPatchedRomDir: dir,
+      oldBaseRomDir: dir,
       newPatchCacheDir: dir,
-      newPatchedRomDir: dir
+      newPatchedRomDir: dir,
+      newBaseRomDir: dir
     })
 
     expect(readFileSync(join(dir, 'file.bps'), 'utf8')).toBe('unchanged')
@@ -113,13 +149,7 @@ describe('relocateStorage', () => {
     upsertMods(db, [sampleMod])
     const id = modId('hylianmodding', '42')
 
-    await relocateStorage({
-      db,
-      oldPatchCacheDir: tmp('ocaris-old-patches-'),
-      oldPatchedRomDir: tmp('ocaris-old-roms-'),
-      newPatchCacheDir: join(tmp('ocaris-new-'), 'patches'),
-      newPatchedRomDir: join(tmp('ocaris-new-'), 'roms')
-    })
+    await relocateStorage({ db, ...freshDirs() })
 
     const status = db
       .prepare('SELECT patch_file_path, patched_rom_path FROM mod_status WHERE mod_id = ?')

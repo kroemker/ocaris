@@ -28,6 +28,11 @@ export function getPatchedRomDir(db: Database.Database): string {
   return join(getStorageRoot(db), 'roms')
 }
 
+/** Where Ocaris keeps its own copy of the user's base ROM - see rom/baseRom.ts. */
+export function getBaseRomDir(db: Database.Database): string {
+  return join(getStorageRoot(db), 'base')
+}
+
 /** Cached, downscaled catalog thumbnails. Disposable - deleting it just means
  *  rows show placeholders until the next catalog refresh. Deliberately not
  *  affected by storage_root: it's a cache, not user output. */

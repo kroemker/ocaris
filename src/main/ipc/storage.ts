@@ -5,6 +5,7 @@ import { IpcChannel, type StorageUsage } from '@shared/ipc'
 import { getDatabase } from '../db'
 import { saveStorageRoot } from '../db/appConfig'
 import {
+  getBaseRomDir,
   getDefaultStorageRoot,
   getPatchCacheDir,
   getPatchedRomDir,
@@ -81,6 +82,7 @@ export function registerStorageIpcHandlers(): void {
       const db = getDatabase()
       const oldPatchCacheDir = getPatchCacheDir(db)
       const oldPatchedRomDir = getPatchedRomDir(db)
+      const oldBaseRomDir = getBaseRomDir(db)
 
       const newRoot = path ?? getDefaultStorageRoot()
       await assertWritableDirectory(newRoot)
@@ -89,8 +91,10 @@ export function registerStorageIpcHandlers(): void {
         db,
         oldPatchCacheDir,
         oldPatchedRomDir,
+        oldBaseRomDir,
         newPatchCacheDir: join(newRoot, 'patches'),
-        newPatchedRomDir: join(newRoot, 'roms')
+        newPatchedRomDir: join(newRoot, 'roms'),
+        newBaseRomDir: join(newRoot, 'base')
       })
 
       saveStorageRoot(db, path)

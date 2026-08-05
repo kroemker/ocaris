@@ -58,23 +58,41 @@ export interface RelocateStorageInput {
   db: Database.Database
   oldPatchCacheDir: string
   oldPatchedRomDir: string
+  oldBaseRomDir: string
   newPatchCacheDir: string
   newPatchedRomDir: string
+  newBaseRomDir: string
 }
 
 /**
- * Moves every cached patch and patched ROM to the new location and rewrites
- * the paths mod_status already has on file, so installed mods keep working
- * without a re-download. Call assertWritableDirectory on the new root first -
- * this function assumes the destination is already known-good.
+ * Moves every cached patch, patched ROM, and the managed base ROM copy to
+ * the new location, and rewrites the paths mod_status and app_config already
+ * have on file, so installed mods and the configured ROM keep working
+ * without a re-download or re-pick. Call assertWritableDirectory on the new
+ * root first - this function assumes the destination is already known-good.
  */
 export async function relocateStorage(input: RelocateStorageInput): Promise<void> {
-  const { db, oldPatchCacheDir, oldPatchedRomDir, newPatchCacheDir, newPatchedRomDir } = input
+  const {
+    db,
+    oldPatchCacheDir,
+    oldPatchedRomDir,
+    oldBaseRomDir,
+    newPatchCacheDir,
+    newPatchedRomDir,
+    newBaseRomDir
+  } = input
 
-  if (oldPatchCacheDir === newPatchCacheDir && oldPatchedRomDir === newPatchedRomDir) return
+  if (
+    oldPatchCacheDir === newPatchCacheDir &&
+    oldPatchedRomDir === newPatchedRomDir &&
+    oldBaseRomDir === newBaseRomDir
+  ) {
+    return
+  }
 
   await moveDirContents(oldPatchCacheDir, newPatchCacheDir)
   await moveDirContents(oldPatchedRomDir, newPatchedRomDir)
+  await moveDirContents(oldBaseRomDir, newBaseRomDir)
 
   const rows = db
     .prepare('SELECT mod_id, patch_file_path, patched_rom_path FROM mod_status')
@@ -88,6 +106,12 @@ export async function relocateStorage(input: RelocateStorageInput): Promise<void
     'UPDATE mod_status SET patch_file_path = @patchFilePath, patched_rom_path = @patchedRomPath WHERE mod_id = @modId'
   )
 
+  const appConfigRow = db.prepare('SELECT rom_path FROM app_config WHERE id = 1').get() as
+    { rom_path: string | null } | undefined
+  const rebasedRomPath = appConfigRow
+    ? rebase(appConfigRow.rom_path, oldBaseRomDir, newBaseRomDir)
+    : null
+
   const rewriteAll = db.transaction(() => {
     for (const row of rows) {
       const patchFilePath = rebase(row.patch_file_path, oldPatchCacheDir, newPatchCacheDir)
@@ -96,6 +120,10 @@ export async function relocateStorage(input: RelocateStorageInput): Promise<void
         continue
       }
       update.run({ modId: row.mod_id, patchFilePath, patchedRomPath })
+    }
+
+    if (appConfigRow && rebasedRomPath !== appConfigRow.rom_path) {
+      db.prepare('UPDATE app_config SET rom_path = ? WHERE id = 1').run(rebasedRomPath)
     }
   })
   rewriteAll()

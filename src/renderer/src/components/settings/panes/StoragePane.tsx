@@ -52,9 +52,9 @@ function StoragePane(): React.JSX.Element {
           )}
         </div>
         <p className="hint">
-          Patches and patched ROMs are kept here, under <code>patches/</code> and <code>roms/</code>
-          . Point it at a folder next to the app itself to keep everything together and portable —
-          existing files are moved automatically.
+          Your base ROM, cached patches, and patched ROMs are kept here, under <code>base/</code>,{' '}
+          <code>patches/</code>, and <code>roms/</code>. Point it at a folder next to the app itself
+          to keep everything together and portable — existing files are moved automatically.
         </p>
       </div>
 
