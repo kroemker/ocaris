@@ -4,16 +4,20 @@ interface FilterChipsProps {
   active: LibraryFilter
   counts: Record<LibraryFilter, number>
   sort: LibrarySort
+  groupByState: boolean
   onFilterChange: (filter: LibraryFilter) => void
   onSortChange: (sort: LibrarySort) => void
+  onGroupByStateChange: (groupByState: boolean) => void
 }
 
 function FilterChips({
   active,
   counts,
   sort,
+  groupByState,
   onFilterChange,
-  onSortChange
+  onSortChange,
+  onGroupByStateChange
 }: FilterChipsProps): React.JSX.Element {
   return (
     <div className="filterbar">
@@ -39,6 +43,15 @@ function FilterChips({
       })}
 
       <span className="spacer" />
+
+      <button
+        type="button"
+        className={groupByState ? 'chip on' : 'chip'}
+        aria-pressed={groupByState}
+        onClick={() => onGroupByStateChange(!groupByState)}
+      >
+        Group by state
+      </button>
 
       <select
         className="sortsel"

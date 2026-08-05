@@ -69,6 +69,32 @@ export function sortMods(mods: readonly ModSummary[], sort: LibrarySort): ModSum
   })
 }
 
+export interface ModGroup {
+  state: ModStatusSummary['state']
+  mods: ModSummary[]
+}
+
+/**
+ * Buckets an already-sorted list by state, preserving each mod's order
+ * within its bucket so "grouped" and "sorted" compose. Bucket order follows
+ * STATE_ORDER; empty buckets are omitted.
+ */
+export function groupModsByState(mods: readonly ModSummary[]): ModGroup[] {
+  const buckets = new Map<ModStatusSummary['state'], ModSummary[]>()
+  for (const mod of mods) {
+    const bucket = buckets.get(mod.status.state)
+    if (bucket) bucket.push(mod)
+    else buckets.set(mod.status.state, [mod])
+  }
+
+  return (Object.keys(STATE_ORDER) as ModStatusSummary['state'][])
+    .sort((a, b) => STATE_ORDER[a] - STATE_ORDER[b])
+    .flatMap((state) => {
+      const groupMods = buckets.get(state)
+      return groupMods ? [{ state, mods: groupMods }] : []
+    })
+}
+
 export interface LibraryView {
   filter: LibraryFilter
   query: string

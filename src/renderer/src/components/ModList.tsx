@@ -1,24 +1,45 @@
 import ModRow from './ModRow'
-import type { ActionContext, ModActionId } from '../lib/library'
+import { groupModsByState, STATUS_LABELS, type ActionContext, type ModActionId } from '../lib/library'
 import type { ModSummary } from '@shared/ipc'
 
 interface ModListProps {
   mods: readonly ModSummary[]
+  groupByState: boolean
   context: ActionContext
   busyIds: ReadonlySet<string>
   onAction: (action: ModActionId, mod: ModSummary) => void
 }
 
-function ModList({ mods, context, busyIds, onAction }: ModListProps): React.JSX.Element {
+function ModList({
+  mods,
+  groupByState,
+  context,
+  busyIds,
+  onAction
+}: ModListProps): React.JSX.Element {
+  const row = (mod: ModSummary): React.JSX.Element => (
+    <ModRow
+      key={mod.id}
+      mod={mod}
+      context={{ ...context, busy: busyIds.has(mod.id) }}
+      onAction={onAction}
+    />
+  )
+
+  if (!groupByState) {
+    return <div className="list">{mods.map(row)}</div>
+  }
+
   return (
     <div className="list">
-      {mods.map((mod) => (
-        <ModRow
-          key={mod.id}
-          mod={mod}
-          context={{ ...context, busy: busyIds.has(mod.id) }}
-          onAction={onAction}
-        />
+      {groupModsByState(mods).map((group) => (
+        <section className="modgroup" key={group.state}>
+          <h3 className="modgroup-heading">
+            {STATUS_LABELS[group.state].text}
+            <span className="n">{group.mods.length}</span>
+          </h3>
+          {group.mods.map(row)}
+        </section>
       ))}
     </div>
   )

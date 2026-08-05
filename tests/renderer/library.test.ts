@@ -3,6 +3,7 @@ import {
   actionsFor,
   countsByFilter,
   formatProgress,
+  groupModsByState,
   sortMods,
   visibleMods
 } from '../../src/renderer/src/lib/library'
@@ -82,6 +83,31 @@ describe('sortMods', () => {
     const input = [...CATALOG]
     sortMods(input, 'status')
     expect(input.map((m) => m.id)).toEqual(['a', 'b', 'c', 'd'])
+  })
+})
+
+describe('groupModsByState', () => {
+  it('buckets ready, downloading, error then not_downloaded, skipping empty buckets', () => {
+    const groups = groupModsByState(sortMods(CATALOG, 'name'))
+    expect(groups.map((g) => g.state)).toEqual(['ready', 'error', 'not_downloaded'])
+  })
+
+  it('preserves the order of the list it was given within each bucket', () => {
+    const withTwoReady = [
+      ...CATALOG,
+      mod({ id: 'e', name: 'Zeta', author: 'Aardvark', status: { state: 'ready' } })
+    ]
+
+    const byName = groupModsByState(sortMods(withTwoReady, 'name'))
+    expect(byName.find((g) => g.state === 'ready')?.mods.map((m) => m.id)).toEqual(['b', 'e'])
+
+    const byAuthor = groupModsByState(sortMods(withTwoReady, 'author'))
+    expect(byAuthor.find((g) => g.state === 'ready')?.mods.map((m) => m.id)).toEqual(['e', 'b'])
+  })
+
+  it('omits buckets with no mods', () => {
+    const groups = groupModsByState([withState('a', 'ready')])
+    expect(groups).toEqual([{ state: 'ready', mods: [withState('a', 'ready')] }])
   })
 })
 

@@ -256,6 +256,34 @@
   overflow-y: auto;
 }
 
+.modgroup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.modgroup-heading {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 0 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.modgroup-heading .n {
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 17px;
+  color: var(--dim);
+  background: var(--bg3);
+  border-radius: 999px;
+}
+
 .row {
   display: flex;
   gap: 16px;
