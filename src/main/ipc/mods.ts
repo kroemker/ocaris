@@ -24,6 +24,12 @@ export function endInstall(modId: string, controller: AbortController): void {
   if (inFlight.get(modId) === controller) inFlight.delete(modId)
 }
 
+/** True while any mod is mid-download, so a storage relocation can refuse to
+ *  move files out from under a write in progress. */
+export function hasActiveInstalls(): boolean {
+  return inFlight.size > 0
+}
+
 async function removeIfPresent(path: string | null): Promise<void> {
   if (!path) return
   // A file the user already deleted is not an error - the point is that it's

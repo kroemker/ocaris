@@ -130,7 +130,8 @@ function RomPane({ onConfigChange }: RomPaneProps): React.JSX.Element {
       )}
 
       <p className="hint">
-        Ocaris never modifies this file — patched copies are written to the output folder.
+        Ocaris never modifies this file — it copies it into its own storage the moment you confirm
+        it, so patching keeps working even if you later move, rename, or delete the original.
       </p>
     </>
   )

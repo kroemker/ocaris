@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import Database from 'better-sqlite3'
 import { runMigrations } from '../../../src/main/db/migrations'
-import { getAppConfig, saveRomConfig, saveTheme } from '../../../src/main/db/appConfig'
+import {
+  getAppConfig,
+  saveRomConfig,
+  saveStorageRoot,
+  saveTheme
+} from '../../../src/main/db/appConfig'
 
 function createDb(): Database.Database {
   const db = new Database(':memory:')
@@ -18,6 +23,7 @@ describe('appConfig DAO', () => {
       romVerified: false,
       romUserConfirmed: false,
       theme: 'system',
+      storageRoot: null,
       updatedAt: null
     })
     db.close()
@@ -96,6 +102,51 @@ describe('appConfig DAO', () => {
     saveTheme(db, 'dark')
 
     expect(getAppConfig(db)).toEqual({ ...saved, theme: 'dark' })
+
+    db.close()
+  })
+
+  it('saves a storage root before any ROM has been configured', () => {
+    const db = createDb()
+
+    const config = saveStorageRoot(db, '/portable/ocaris')
+
+    expect(config.storageRoot).toBe('/portable/ocaris')
+    expect(config.romPath).toBeNull()
+    expect(getAppConfig(db).storageRoot).toBe('/portable/ocaris')
+
+    db.close()
+  })
+
+  it('resets the storage root to the default with null', () => {
+    const db = createDb()
+
+    saveStorageRoot(db, '/portable/ocaris')
+    const reset = saveStorageRoot(db, null)
+
+    expect(reset.storageRoot).toBeNull()
+
+    db.close()
+  })
+
+  it('leaves the ROM config and theme untouched when the storage root changes', () => {
+    const db = createDb()
+
+    const saved = saveRomConfig(db, {
+      romPath: '/roms/oot.z64',
+      romVariant: 'compressed',
+      romVerified: true,
+      romUserConfirmed: true
+    })
+    saveTheme(db, 'dark')
+
+    saveStorageRoot(db, '/portable/ocaris')
+
+    expect(getAppConfig(db)).toEqual({
+      ...saved,
+      theme: 'dark',
+      storageRoot: '/portable/ocaris'
+    })
 
     db.close()
   })
