@@ -1,27 +1,6 @@
 import { useState } from 'react'
 import type { ModSummary } from '@shared/ipc'
-
-/**
- * Deterministic gradient for the placeholder tile, so a given mod always gets
- * the same colors instead of flickering between renders.
- */
-function hueFor(id: string): number {
-  let hash = 0
-  for (let i = 0; i < id.length; i += 1) {
-    hash = (hash * 31 + id.charCodeAt(i)) % 360
-  }
-  return hash
-}
-
-function initials(name: string): string {
-  return name
-    .split(/[\s:&]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word[0])
-    .join('')
-    .toUpperCase()
-}
+import { hueFor, initials } from '../lib/badge'
 
 /**
  * 4:3 box - the N64's native ratio and the majority of what the catalog

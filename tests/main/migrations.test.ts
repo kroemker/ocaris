@@ -16,7 +16,8 @@ describe('runMigrations', () => {
       { id: 4, name: 'mods' },
       { id: 5, name: 'app_config_theme' },
       { id: 6, name: 'mods_first_seen_at' },
-      { id: 7, name: 'app_config_storage_root' }
+      { id: 7, name: 'app_config_storage_root' },
+      { id: 8, name: 'emulators_known_id' }
     ])
 
     db.close()
@@ -31,7 +32,7 @@ describe('runMigrations', () => {
     const count = db.prepare('SELECT COUNT(*) as count FROM schema_migrations').get() as {
       count: number
     }
-    expect(count.count).toBe(7)
+    expect(count.count).toBe(8)
 
     db.close()
   })

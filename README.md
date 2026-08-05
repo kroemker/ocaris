@@ -26,7 +26,7 @@ src/main            Electron main process (window, lifecycle)
 src/main/db         SQLite connection, migrations, and per-entity DAOs
 src/main/ipc        ipcMain handlers, one module per feature area
 src/main/rom        ROM header verification (N64 header CRC1/CRC2 check)
-src/main/emulator   Emulator executable-path validation
+src/main/emulator   Emulator executable-path validation, launch and auto-detect
 src/main/download   Generic HTTP download engine (streaming, progress, cancellation)
 src/main/catalog    Pluggable ModCatalogSource interface + hylianmodding.com adapter
 src/main/mods       Mod install pipeline (download patch -> apply -> ready)
@@ -39,6 +39,7 @@ src/renderer/src/lib     Pure view logic (filter/sort/status-to-actions), no Rea
 src/renderer/src/styles  Design tokens + component styles
 src/renderer/src/theme   Theme preference hook and provider
 src/shared          Types/constants shared between main and renderer (e.g. IPC contract)
+src/shared/emulators Curated known-N64-emulator registry (pure data, no Node/Electron APIs)
 src/patch           BPS patch engine - no Electron dependency, plain Node/TS
 tests/main          Unit tests for main-process modules
 tests/renderer      Unit tests for the renderer's pure view logic
@@ -106,6 +107,16 @@ ROM and emulator setup are panes of a settings dialog (`src/renderer/src/compone
 It's a native `<dialog>` opened with `showModal()`, which brings Esc-to-close, the backdrop, a focus trap and focus restore with it. Its `onClose` fires for Esc as well as an explicit close, so that's the single place that reports the dialog is no longer open.
 
 The Storage pane is read-only: `src/main/storage/paths.ts` is the only thing that decides where patches and patched ROMs live, so making those configurable later is a change in one file rather than a hunt through call sites. `storage:open-folder` takes no path from the renderer - it can only open the app's own directory.
+
+## Emulator registry, icons and auto-detect
+
+`src/shared/emulators/registry.ts` is a small curated list of common N64 emulators (Project64, RetroArch, simple64, Rosalie's Mupen GUI, ares) - pure data (id, per-platform default args, executable names, install-path candidates), no Node/Electron APIs, so it's importable from both the main process and the renderer. Picking a known emulator seeds the existing name/path/args form (`src/renderer/src/lib/emulatorPicker.ts`'s `seedFromKnown`) rather than replacing it - every field stays editable afterward, and adding an emulator that isn't in the list is still one click away via the "Other" tile.
+
+Icons are original in-house SVG-style badges (`EmulatorIcon`, reusing `ModThumbnail`'s deterministic hue+initials technique via `src/renderer/src/lib/badge.ts`), not official project logos - bundling trademarked logos into the repo isn't something to do without sourcing/verifying a license for each one, so this ships a placeholder per entry instead. The registry keys icons by `knownId`, so real artwork can replace a badge later without touching any other code.
+
+`src/main/emulator/detect.ts` scans for installed emulators: each registry entry's known install-path candidates (with `{home}`/`{programFiles}`/`{programFilesX86}` tokens resolved per-OS) plus every directory on `PATH`, reusing `validateExecutablePath` so a same-named-but-non-executable file doesn't count as a match. It's exposed as an explicit "Scan for installed emulators" action in the Emulators pane, not an automatic background scan - a hit still lands in the same review-before-save form as picking from the grid, it's just pre-filled with the path found on disk.
+
+`emulators.known_id`/`kind` (`'known' | 'custom'`) record which registry entry (if any) an emulator config was seeded from, purely for display (showing its icon again in the list) - they're set once on insert and never touched by an edit, so renaming or repointing a "known" emulator's path doesn't reclassify it as custom.
 
 ## Theming
 

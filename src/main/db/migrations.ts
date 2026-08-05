@@ -112,6 +112,19 @@ const migrations: Migration[] = [
       // separate boolean, the column doubling as its own default marker.
       db.exec(`ALTER TABLE app_config ADD COLUMN storage_root TEXT;`)
     }
+  },
+  {
+    id: 8,
+    name: 'emulators_known_id',
+    up: (db) => {
+      // kind/known_id record which registry entry (if any) an emulator was
+      // seeded from, purely for display (e.g. showing its icon again) -
+      // name/executable_path/args_template stay independently editable.
+      db.exec(`
+        ALTER TABLE emulators ADD COLUMN known_id TEXT;
+        ALTER TABLE emulators ADD COLUMN kind TEXT NOT NULL DEFAULT 'custom';
+      `)
+    }
   }
 ]
 

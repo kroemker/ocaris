@@ -694,6 +694,59 @@
   border-color: var(--line);
 }
 
+.emu-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: var(--thumb-shadow);
+  background: linear-gradient(135deg, var(--c1), var(--c2));
+  border-radius: 8px;
+}
+
+.emu-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.emu-picker-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  padding: 10px 6px;
+  text-align: center;
+  cursor: pointer;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.emu-picker-tile:hover {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+}
+
+.emu-picker-tile span {
+  font-size: 12px;
+}
+
+.emu-detect-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  background: var(--bg);
+  border: 1px dashed var(--line);
+  border-radius: 9px;
+}
+
 .emu-row {
   display: flex;
   gap: 10px;

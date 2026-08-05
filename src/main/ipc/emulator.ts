@@ -1,5 +1,11 @@
 import { dialog, ipcMain } from 'electron'
-import { IpcChannel, type Emulator, type EmulatorInput, type EmulatorSaveResult } from '@shared/ipc'
+import {
+  IpcChannel,
+  type DetectedEmulator,
+  type Emulator,
+  type EmulatorInput,
+  type EmulatorSaveResult
+} from '@shared/ipc'
 import {
   addEmulator,
   deleteEmulator,
@@ -8,6 +14,7 @@ import {
   updateEmulator
 } from '../db/emulators'
 import { getDatabase } from '../db'
+import { detectEmulators } from '../emulator/detect'
 import { launchEmulator } from '../emulator/launch'
 import { validateExecutablePath } from '../emulator/validate'
 import { validateEmulatorInput } from '../emulator/validateInput'
@@ -64,6 +71,11 @@ export function registerEmulatorIpcHandlers(): void {
 
   ipcMain.handle(IpcChannel.EmulatorSetDefault, (_event, id: number): void => {
     setDefaultEmulator(getDatabase(), id)
+  })
+
+  ipcMain.handle(IpcChannel.EmulatorDetect, async (): Promise<DetectedEmulator[]> => {
+    const existingPaths = listEmulators(getDatabase()).map((e) => e.executablePath)
+    return detectEmulators(existingPaths)
   })
 
   ipcMain.handle(
