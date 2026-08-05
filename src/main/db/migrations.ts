@@ -103,6 +103,19 @@ const migrations: Migration[] = [
         UPDATE mods SET first_seen_at = fetched_at WHERE first_seen_at IS NULL;
       `)
     }
+  },
+  {
+    id: 7,
+    name: 'emulators_known_id',
+    up: (db) => {
+      // kind/known_id record which registry entry (if any) an emulator was
+      // seeded from, purely for display (e.g. showing its icon again) -
+      // name/executable_path/args_template stay independently editable.
+      db.exec(`
+        ALTER TABLE emulators ADD COLUMN known_id TEXT;
+        ALTER TABLE emulators ADD COLUMN kind TEXT NOT NULL DEFAULT 'custom';
+      `)
+    }
   }
 ]
 

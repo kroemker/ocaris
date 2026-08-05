@@ -25,6 +25,7 @@ export const IpcChannel = {
   EmulatorDelete: 'emulator:delete',
   EmulatorSetDefault: 'emulator:set-default',
   EmulatorLaunch: 'emulator:launch',
+  EmulatorDetect: 'emulator:detect',
   CatalogRefresh: 'catalog:refresh',
   CatalogList: 'catalog:list',
   CatalogStats: 'catalog:stats',
@@ -40,6 +41,7 @@ export const IpcChannel = {
 export interface AppSettings {
   theme: ThemeSource
   appVersion: string
+  platform: NodeJS.Platform
 }
 
 export interface CatalogStats {
@@ -73,12 +75,16 @@ export interface RomConfirmRequest {
   verified: boolean
 }
 
+export type EmulatorKind = 'known' | 'custom'
+
 export interface Emulator {
   id: number
   name: string
   executablePath: string
   argsTemplate: string
   isDefault: boolean
+  knownId: string | null
+  kind: EmulatorKind
   createdAt: number
   updatedAt: number
 }
@@ -87,6 +93,7 @@ export interface EmulatorInput {
   name: string
   executablePath: string
   argsTemplate: string
+  knownId?: string | null
 }
 
 export interface EmulatorValidationError {
@@ -97,6 +104,11 @@ export interface EmulatorValidationError {
 export interface EmulatorSaveResult {
   emulator: Emulator | null
   errors: EmulatorValidationError[]
+}
+
+export interface DetectedEmulator {
+  knownId: string
+  executablePath: string
 }
 
 export type ModStatusState = 'not_downloaded' | 'downloading' | 'ready' | 'error'

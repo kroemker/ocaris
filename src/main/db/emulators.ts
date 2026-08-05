@@ -1,11 +1,15 @@
 import type Database from 'better-sqlite3'
 
+export type EmulatorKind = 'known' | 'custom'
+
 export interface Emulator {
   id: number
   name: string
   executablePath: string
   argsTemplate: string
   isDefault: boolean
+  knownId: string | null
+  kind: EmulatorKind
   createdAt: number
   updatedAt: number
 }
@@ -16,6 +20,8 @@ interface EmulatorRow {
   executable_path: string
   args_template: string
   is_default: number
+  known_id: string | null
+  kind: EmulatorKind
   created_at: number
   updated_at: number
 }
@@ -27,6 +33,8 @@ function rowToEmulator(row: EmulatorRow): Emulator {
     executablePath: row.executable_path,
     argsTemplate: row.args_template,
     isDefault: row.is_default === 1,
+    knownId: row.known_id,
+    kind: row.kind,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   }
@@ -43,6 +51,7 @@ export interface AddEmulatorInput {
   name: string
   executablePath: string
   argsTemplate: string
+  knownId?: string | null
 }
 
 export function addEmulator(db: Database.Database, input: AddEmulatorInput): Emulator {
@@ -51,17 +60,20 @@ export function addEmulator(db: Database.Database, input: AddEmulatorInput): Emu
     db.prepare('SELECT COUNT(*) as count FROM emulators').get() as { count: number }
   ).count
   const isDefault = existingCount === 0
+  const knownId = input.knownId ?? null
 
   const result = db
     .prepare(
-      `INSERT INTO emulators (name, executable_path, args_template, is_default, created_at, updated_at)
-       VALUES (@name, @executablePath, @argsTemplate, @isDefault, @createdAt, @updatedAt)`
+      `INSERT INTO emulators (name, executable_path, args_template, is_default, known_id, kind, created_at, updated_at)
+       VALUES (@name, @executablePath, @argsTemplate, @isDefault, @knownId, @kind, @createdAt, @updatedAt)`
     )
     .run({
       name: input.name,
       executablePath: input.executablePath,
       argsTemplate: input.argsTemplate,
       isDefault: isDefault ? 1 : 0,
+      knownId,
+      kind: knownId === null ? 'custom' : 'known',
       createdAt: now,
       updatedAt: now
     })

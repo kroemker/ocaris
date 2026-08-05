@@ -109,6 +109,28 @@ describe('emulators DAO', () => {
     db.close()
   })
 
+  it('records the known-emulator id and kind when seeded from the registry', () => {
+    const db = createDb()
+    const known = addEmulator(db, {
+      name: 'RetroArch',
+      executablePath: '/usr/bin/retroarch',
+      argsTemplate: '{romPath}',
+      knownId: 'retroarch'
+    })
+    expect(known.knownId).toBe('retroarch')
+    expect(known.kind).toBe('known')
+
+    const custom = addEmulator(db, {
+      name: 'My Emulator',
+      executablePath: '/usr/bin/my-emu',
+      argsTemplate: '{romPath}'
+    })
+    expect(custom.knownId).toBeNull()
+    expect(custom.kind).toBe('custom')
+
+    db.close()
+  })
+
   it('leaves no default when the last emulator is deleted', () => {
     const db = createDb()
     const only = addEmulator(db, {

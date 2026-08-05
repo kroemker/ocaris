@@ -4,6 +4,7 @@ import {
   type AppSettings,
   type CatalogRefreshResult,
   type CatalogStats,
+  type DetectedEmulator,
   type Emulator,
   type EmulatorInput,
   type EmulatorSaveResult,
@@ -41,7 +42,8 @@ const api = {
     setDefault: (id: number): Promise<void> =>
       ipcRenderer.invoke(IpcChannel.EmulatorSetDefault, id),
     launch: (emulatorId: number, romPath: string): Promise<void> =>
-      ipcRenderer.invoke(IpcChannel.EmulatorLaunch, emulatorId, romPath)
+      ipcRenderer.invoke(IpcChannel.EmulatorLaunch, emulatorId, romPath),
+    detect: (): Promise<DetectedEmulator[]> => ipcRenderer.invoke(IpcChannel.EmulatorDetect)
   },
   catalog: {
     refresh: (): Promise<CatalogRefreshResult> => ipcRenderer.invoke(IpcChannel.CatalogRefresh),
