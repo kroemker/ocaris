@@ -5,7 +5,11 @@ import type {
   EmulatorInput,
   EmulatorValidationError
 } from '@shared/ipc'
-import { getKnownEmulator, type EmulatorPlatform } from '@shared/emulators/registry'
+import {
+  getKnownEmulator,
+  type EmulatorPlatform,
+  type KnownEmulator
+} from '@shared/emulators/registry'
 import { emulatorsForPlatform, seedFromKnown } from '../../../lib/emulatorPicker'
 import EmulatorIcon from '../EmulatorIcon'
 
@@ -25,6 +29,8 @@ function EmulatorsPane({ onChange }: EmulatorsPaneProps): React.JSX.Element {
   const [busy, setBusy] = useState(false)
   const [detected, setDetected] = useState<DetectedEmulator[]>([])
   const [detecting, setDetecting] = useState(false)
+  const [installingId, setInstallingId] = useState<string | null>(null)
+  const [installError, setInstallError] = useState<{ id: string; message: string } | null>(null)
 
   function refresh(): Promise<void> {
     return window.api.emulator.list().then((list) => {
@@ -98,6 +104,35 @@ function EmulatorsPane({ onChange }: EmulatorsPaneProps): React.JSX.Element {
     } finally {
       setDetecting(false)
     }
+  }
+
+  async function handleInstall(entry: KnownEmulator): Promise<void> {
+    if (!platform) return
+    setInstallingId(entry.id)
+    setInstallError(null)
+    try {
+      const result = await window.api.emulator.install(entry.id)
+      if (!result.ok || !result.executablePath) {
+        if (result.errorMessage) setInstallError({ id: entry.id, message: result.errorMessage })
+        return
+      }
+
+      const addResult = await window.api.emulator.add(
+        seedFromKnown(entry, platform, result.executablePath)
+      )
+      if (addResult.errors.length > 0) {
+        setInstallError({ id: entry.id, message: addResult.errors[0].message })
+        return
+      }
+
+      await refresh()
+    } finally {
+      setInstallingId(null)
+    }
+  }
+
+  function handleCancelInstall(entry: KnownEmulator): void {
+    void window.api.emulator.installCancel(entry.id)
   }
 
   async function handleSubmit(e: React.FormEvent): Promise<void> {
@@ -226,6 +261,35 @@ function EmulatorsPane({ onChange }: EmulatorsPaneProps): React.JSX.Element {
               </div>
             )
           })}
+
+          {emulatorsForPlatform(platform)
+            .filter((entry) => entry.download?.assetPattern[platform])
+            .map((entry) => {
+              const isInstalling = installingId === entry.id
+              return (
+                <div className="emu-detect-row" key={`install-${entry.id}`}>
+                  <EmulatorIcon knownId={entry.id} name={entry.name} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600 }}>{entry.name}</div>
+                    {installError?.id === entry.id && (
+                      <p className="hint err" style={{ margin: 0 }}>
+                        {installError.message}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    className="btn sm"
+                    type="button"
+                    disabled={installingId !== null && !isInstalling}
+                    onClick={() =>
+                      isInstalling ? handleCancelInstall(entry) : void handleInstall(entry)
+                    }
+                  >
+                    {isInstalling ? 'Cancel install' : 'Download & install'}
+                  </button>
+                </div>
+              )
+            })}
 
           <div className="emu-picker">
             {emulatorsForPlatform(platform).map((entry) => (

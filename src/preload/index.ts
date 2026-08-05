@@ -7,6 +7,7 @@ import {
   type DetectedEmulator,
   type Emulator,
   type EmulatorInput,
+  type EmulatorInstallResult,
   type EmulatorSaveResult,
   type ModSummary,
   type RomConfig,
@@ -43,7 +44,11 @@ const api = {
       ipcRenderer.invoke(IpcChannel.EmulatorSetDefault, id),
     launch: (emulatorId: number, romPath: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannel.EmulatorLaunch, emulatorId, romPath),
-    detect: (): Promise<DetectedEmulator[]> => ipcRenderer.invoke(IpcChannel.EmulatorDetect)
+    detect: (): Promise<DetectedEmulator[]> => ipcRenderer.invoke(IpcChannel.EmulatorDetect),
+    install: (knownId: string): Promise<EmulatorInstallResult> =>
+      ipcRenderer.invoke(IpcChannel.EmulatorInstall, knownId),
+    installCancel: (knownId: string): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannel.EmulatorInstallCancel, knownId)
   },
   catalog: {
     refresh: (): Promise<CatalogRefreshResult> => ipcRenderer.invoke(IpcChannel.CatalogRefresh),

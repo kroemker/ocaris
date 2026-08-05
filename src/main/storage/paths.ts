@@ -39,3 +39,8 @@ export function getBaseRomDir(db: Database.Database): string {
 export function getThumbnailDir(): string {
   return join(app.getPath('userData'), 'thumbs')
 }
+
+/** Where auto-downloaded known emulators get extracted to, one subfolder per emulator id. */
+export function getEmulatorInstallDir(db: Database.Database): string {
+  return join(getStorageRoot(db), 'emulators')
+}

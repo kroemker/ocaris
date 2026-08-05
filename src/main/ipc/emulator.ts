@@ -4,6 +4,7 @@ import {
   type DetectedEmulator,
   type Emulator,
   type EmulatorInput,
+  type EmulatorInstallResult,
   type EmulatorSaveResult
 } from '@shared/ipc'
 import {
@@ -14,10 +15,19 @@ import {
   updateEmulator
 } from '../db/emulators'
 import { getDatabase } from '../db'
-import { detectEmulators } from '../emulator/detect'
+import { currentPlatform, detectEmulators } from '../emulator/detect'
+import { installKnownEmulator } from '../emulator/install'
 import { launchEmulator } from '../emulator/launch'
 import { validateExecutablePath } from '../emulator/validate'
 import { validateEmulatorInput } from '../emulator/validateInput'
+import { getEmulatorInstallDir } from '../storage/paths'
+
+/**
+ * In-flight installs, keyed by known emulator id, so emulator:install-cancel
+ * can abort one download without touching others - same reasoning and
+ * pattern as src/main/ipc/mods.ts's inFlight map.
+ */
+const inFlightInstalls = new Map<string, AbortController>()
 
 async function validateAndSave(
   input: EmulatorInput,
@@ -88,4 +98,37 @@ export function registerEmulatorIpcHandlers(): void {
       await launchEmulator(emulator.executablePath, emulator.argsTemplate, romPath)
     }
   )
+
+  ipcMain.handle(
+    IpcChannel.EmulatorInstall,
+    async (_event, knownId: string): Promise<EmulatorInstallResult> => {
+      const platform = currentPlatform()
+      if (!platform) {
+        return { ok: false, executablePath: null, errorMessage: 'Unsupported platform.' }
+      }
+
+      // A second install of the same emulator supersedes the first.
+      inFlightInstalls.get(knownId)?.abort()
+      const controller = new AbortController()
+      inFlightInstalls.set(knownId, controller)
+
+      try {
+        return await installKnownEmulator({
+          knownId,
+          platform,
+          installDir: getEmulatorInstallDir(getDatabase()),
+          signal: controller.signal
+        })
+      } finally {
+        if (inFlightInstalls.get(knownId) === controller) inFlightInstalls.delete(knownId)
+      }
+    }
+  )
+
+  ipcMain.handle(IpcChannel.EmulatorInstallCancel, (_event, knownId: string): boolean => {
+    const controller = inFlightInstalls.get(knownId)
+    if (!controller) return false
+    controller.abort()
+    return true
+  })
 }

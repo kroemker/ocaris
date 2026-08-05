@@ -12,9 +12,44 @@
  * defaultArgsTemplate is best-effort: most of these emulators accept a bare
  * ROM path, but some (RetroArch in particular, which needs a core) may need
  * the user to extend the template after picking it - the UI surfaces that.
+ *
+ * `download` is deliberately absent from two entries:
+ *  - Project64 is closed-source with no stable, programmatically discoverable
+ *    download URL and unclear redistribution terms - same concern already
+ *    noted for bundling its icon. Auto-download isn't attempted for it.
+ *  - RetroArch's GitHub releases are changelog/source markers, not where its
+ *    binaries are published (those come from libretro's own buildbot); there
+ *    is no reliable release-asset convention to key off of.
  */
 
 export type EmulatorPlatform = 'win32' | 'darwin' | 'linux'
+
+/**
+ * How to fetch a ready-to-run copy of this emulator for one platform, so the
+ * "add emulator" picker can offer an "Install" button instead of requiring
+ * the user to already have it on disk. Only emulators that are open-source
+ * and actually publish per-platform build artifacts as GitHub release
+ * assets get one of these - see the comment above KNOWN_EMULATORS for which
+ * entries are deliberately left without.
+ *
+ * assetPattern is a regex rather than an exact filename because release
+ * asset names embed a version number that changes every release; it's
+ * matched against every asset name in the latest release and the first
+ * match wins.
+ */
+export interface EmulatorDownloadSource {
+  type: 'github-release'
+  /** 'owner/repo' on GitHub. */
+  repo: string
+  assetPattern: Partial<Record<EmulatorPlatform, RegExp>>
+  /**
+   * 'zip' - extract the whole archive into the install dir, then locate the
+   * binary inside via executableNames.
+   * 'raw' - the asset itself is the runnable file (e.g. an AppImage); it's
+   * saved as-is and marked executable.
+   */
+  archiveType: Partial<Record<EmulatorPlatform, 'zip' | 'raw'>>
+}
 
 export interface KnownEmulator {
   id: string
@@ -23,6 +58,7 @@ export interface KnownEmulator {
   defaultArgsTemplate: Partial<Record<EmulatorPlatform, string>>
   executableNames: Partial<Record<EmulatorPlatform, string[]>>
   installPaths: Partial<Record<EmulatorPlatform, string[]>>
+  download?: EmulatorDownloadSource
 }
 
 export const KNOWN_EMULATORS: KnownEmulator[] = [
@@ -69,6 +105,15 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     installPaths: {
       win32: ['{programFiles}/simple64'],
       linux: ['{home}/Applications', '{home}/.local/bin']
+    },
+    download: {
+      type: 'github-release',
+      repo: 'simple64/simple64',
+      assetPattern: {
+        win32: /win(?:64|dows)?.*\.zip$/i,
+        linux: /\.appimage$/i
+      },
+      archiveType: { win32: 'zip', linux: 'raw' }
     }
   },
   {
@@ -80,6 +125,15 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     installPaths: {
       win32: ['{programFiles}/Rosalies Mupen GUI', '{programFiles}/RMG'],
       linux: ['{home}/Applications', '/usr/bin', '/usr/local/bin']
+    },
+    download: {
+      type: 'github-release',
+      repo: 'Rosalie241/RMG',
+      assetPattern: {
+        win32: /win(?:64|dows)?.*\.zip$/i,
+        linux: /\.appimage$/i
+      },
+      archiveType: { win32: 'zip', linux: 'raw' }
     }
   },
   {
@@ -92,6 +146,16 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
       win32: ['{programFiles}/ares'],
       darwin: ['/Applications/ares.app/Contents/MacOS'],
       linux: ['/usr/bin', '/usr/local/bin', '{home}/.local/bin']
+    },
+    download: {
+      type: 'github-release',
+      repo: 'ares-emulator/ares',
+      assetPattern: {
+        win32: /win(?:dows)?.*\.zip$/i,
+        darwin: /mac(?:os)?.*\.zip$/i,
+        linux: /linux.*\.zip$/i
+      },
+      archiveType: { win32: 'zip', darwin: 'zip', linux: 'zip' }
     }
   }
 ]
