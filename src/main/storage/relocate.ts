@@ -59,15 +59,18 @@ export interface RelocateStorageInput {
   oldPatchCacheDir: string
   oldPatchedRomDir: string
   oldBaseRomDir: string
+  oldEmulatorInstallDir: string
   newPatchCacheDir: string
   newPatchedRomDir: string
   newBaseRomDir: string
+  newEmulatorInstallDir: string
 }
 
 /**
- * Moves every cached patch, patched ROM, and the managed base ROM copy to
- * the new location, and rewrites the paths mod_status and app_config already
- * have on file, so installed mods and the configured ROM keep working
+ * Moves every cached patch, patched ROM, the managed base ROM copy, and any
+ * auto-installed emulators to the new location, and rewrites the paths
+ * mod_status, app_config and emulators already have on file, so installed
+ * mods, the configured ROM, and downloaded emulators all keep working
  * without a re-download or re-pick. Call assertWritableDirectory on the new
  * root first - this function assumes the destination is already known-good.
  */
@@ -77,15 +80,18 @@ export async function relocateStorage(input: RelocateStorageInput): Promise<void
     oldPatchCacheDir,
     oldPatchedRomDir,
     oldBaseRomDir,
+    oldEmulatorInstallDir,
     newPatchCacheDir,
     newPatchedRomDir,
-    newBaseRomDir
+    newBaseRomDir,
+    newEmulatorInstallDir
   } = input
 
   if (
     oldPatchCacheDir === newPatchCacheDir &&
     oldPatchedRomDir === newPatchedRomDir &&
-    oldBaseRomDir === newBaseRomDir
+    oldBaseRomDir === newBaseRomDir &&
+    oldEmulatorInstallDir === newEmulatorInstallDir
   ) {
     return
   }
@@ -93,6 +99,7 @@ export async function relocateStorage(input: RelocateStorageInput): Promise<void
   await moveDirContents(oldPatchCacheDir, newPatchCacheDir)
   await moveDirContents(oldPatchedRomDir, newPatchedRomDir)
   await moveDirContents(oldBaseRomDir, newBaseRomDir)
+  await moveDirContents(oldEmulatorInstallDir, newEmulatorInstallDir)
 
   const rows = db
     .prepare('SELECT mod_id, patch_file_path, patched_rom_path FROM mod_status')
@@ -112,6 +119,12 @@ export async function relocateStorage(input: RelocateStorageInput): Promise<void
     ? rebase(appConfigRow.rom_path, oldBaseRomDir, newBaseRomDir)
     : null
 
+  const emulatorRows = db.prepare('SELECT id, executable_path FROM emulators').all() as {
+    id: number
+    executable_path: string
+  }[]
+  const updateEmulatorPath = db.prepare('UPDATE emulators SET executable_path = ? WHERE id = ?')
+
   const rewriteAll = db.transaction(() => {
     for (const row of rows) {
       const patchFilePath = rebase(row.patch_file_path, oldPatchCacheDir, newPatchCacheDir)
@@ -124,6 +137,17 @@ export async function relocateStorage(input: RelocateStorageInput): Promise<void
 
     if (appConfigRow && rebasedRomPath !== appConfigRow.rom_path) {
       db.prepare('UPDATE app_config SET rom_path = ? WHERE id = 1').run(rebasedRomPath)
+    }
+
+    for (const row of emulatorRows) {
+      const executablePath = rebase(
+        row.executable_path,
+        oldEmulatorInstallDir,
+        newEmulatorInstallDir
+      )
+      if (executablePath !== row.executable_path && executablePath !== null) {
+        updateEmulatorPath.run(executablePath, row.id)
+      }
     }
   })
   rewriteAll()

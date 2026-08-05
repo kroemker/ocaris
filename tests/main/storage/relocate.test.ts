@@ -1,9 +1,10 @@
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import Database from 'better-sqlite3'
 import { saveRomConfig } from '../../../src/main/db/appConfig'
+import { addEmulator } from '../../../src/main/db/emulators'
 import { runMigrations } from '../../../src/main/db/migrations'
 import { modId, setModStatus, upsertMods, type ModRecord } from '../../../src/main/db/mods'
 import { assertWritableDirectory, relocateStorage } from '../../../src/main/storage/relocate'
@@ -31,9 +32,11 @@ interface Dirs {
   oldPatchCacheDir: string
   oldPatchedRomDir: string
   oldBaseRomDir: string
+  oldEmulatorInstallDir: string
   newPatchCacheDir: string
   newPatchedRomDir: string
   newBaseRomDir: string
+  newEmulatorInstallDir: string
 }
 
 function freshDirs(): Dirs {
@@ -42,9 +45,11 @@ function freshDirs(): Dirs {
     oldPatchCacheDir: tmp('ocaris-old-patches-'),
     oldPatchedRomDir: tmp('ocaris-old-roms-'),
     oldBaseRomDir: tmp('ocaris-old-base-'),
+    oldEmulatorInstallDir: tmp('ocaris-old-emulators-'),
     newPatchCacheDir: join(newRoot, 'patches'),
     newPatchedRomDir: join(newRoot, 'roms'),
-    newBaseRomDir: join(newRoot, 'base')
+    newBaseRomDir: join(newRoot, 'base'),
+    newEmulatorInstallDir: join(newRoot, 'emulators')
   }
 }
 
@@ -116,6 +121,36 @@ describe('relocateStorage', () => {
     db.close()
   })
 
+  it('moves installed emulator files and rewrites emulators.executable_path', async () => {
+    const db = createDb()
+    const dirs = freshDirs()
+
+    const oldExeDir = join(dirs.oldEmulatorInstallDir, 'ares')
+    const oldExePath = join(oldExeDir, 'ares')
+    mkdirSync(oldExeDir, { recursive: true })
+    writeFileSync(oldExePath, 'binary-bytes')
+
+    const added = addEmulator(db, {
+      name: 'ares',
+      executablePath: oldExePath,
+      argsTemplate: '{romPath}',
+      knownId: 'ares'
+    })
+
+    await relocateStorage({ db, ...dirs })
+
+    const newExePath = join(dirs.newEmulatorInstallDir, 'ares', 'ares')
+    expect(existsSync(oldExePath)).toBe(false)
+    expect(readFileSync(newExePath, 'utf8')).toBe('binary-bytes')
+
+    const row = db.prepare('SELECT executable_path FROM emulators WHERE id = ?').get(added.id) as {
+      executable_path: string
+    }
+    expect(row.executable_path).toBe(newExePath)
+
+    db.close()
+  })
+
   it('is a no-op when nothing has been downloaded or configured yet', async () => {
     const db = createDb()
     const dirs = freshDirs()
@@ -135,9 +170,11 @@ describe('relocateStorage', () => {
       oldPatchCacheDir: dir,
       oldPatchedRomDir: dir,
       oldBaseRomDir: dir,
+      oldEmulatorInstallDir: dir,
       newPatchCacheDir: dir,
       newPatchedRomDir: dir,
-      newBaseRomDir: dir
+      newBaseRomDir: dir,
+      newEmulatorInstallDir: dir
     })
 
     expect(readFileSync(join(dir, 'file.bps'), 'utf8')).toBe('unchanged')

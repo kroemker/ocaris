@@ -125,8 +125,11 @@ export async function installKnownEmulator(
 
     let executablePath: string | null
     if (archiveType === 'zip') {
+      // extractAllToAsync (not the sync extractAllTo) so extracting a
+      // multi-file emulator build doesn't block the whole Electron main
+      // process for however long that takes.
       const zip = new AdmZip(downloadPath)
-      zip.extractAllTo(targetDir, true)
+      await zip.extractAllToAsync(targetDir, true)
       await rm(downloadPath, { force: true })
       executablePath = await findExecutable(
         targetDir,
