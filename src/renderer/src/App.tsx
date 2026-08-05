@@ -27,6 +27,7 @@ function App(): React.JSX.Element {
   const [filter, setFilter] = useState<LibraryFilter>('all')
   const [sort, setSort] = useState<LibrarySort>('name')
   const [query, setQuery] = useState('')
+  const [groupByState, setGroupByState] = useState(false)
 
   const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(new Set())
   const [refreshing, setRefreshing] = useState(false)
@@ -195,6 +196,7 @@ function App(): React.JSX.Element {
     return (
       <ModList
         mods={visible}
+        groupByState={groupByState}
         busyIds={busyIds}
         context={{ hasEmulator: emulators.length > 0 }}
         onAction={(action, mod) => void handleAction(action, mod)}
@@ -239,8 +241,10 @@ function App(): React.JSX.Element {
           active={filter}
           counts={counts}
           sort={sort}
+          groupByState={groupByState}
           onFilterChange={setFilter}
           onSortChange={setSort}
+          onGroupByStateChange={setGroupByState}
         />
       )}
 
