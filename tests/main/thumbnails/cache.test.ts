@@ -30,7 +30,12 @@ vi.mock('electron', () => ({
   }
 }))
 
-const { cacheThumbnails, thumbnailFileName } = await import('../../../src/main/thumbnails/cache')
+const { cacheThumbnails, findThumbnailFile, thumbnailBaseName } =
+  await import('../../../src/main/thumbnails/cache')
+
+function jpegPath(modId: string): string {
+  return join(dir, `${thumbnailBaseName(modId)}.jpg`)
+}
 
 let server: Server
 let dir: string
@@ -56,6 +61,17 @@ function fakeImage(width: number): Buffer {
   ])
 }
 
+/** Real WebP magic bytes - nativeImage can't decode these, so they must be
+ *  sniffed and stored verbatim. */
+function fakeWebp(): Buffer {
+  return Buffer.concat([
+    Buffer.from('RIFF'),
+    Buffer.alloc(4),
+    Buffer.from('WEBPVP8 '),
+    Buffer.from('webp-payload')
+  ])
+}
+
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'ocaris-thumbs-'))
   resize.mockClear()
@@ -78,7 +94,7 @@ describe('cacheThumbnails', () => {
     ])
 
     expect(stored).toBe(2)
-    expect(existsSync(join(dir, thumbnailFileName('src:one')))).toBe(true)
+    expect(existsSync(jpegPath('src:one'))).toBe(true)
     // 3x the 104px row box, so it stays sharp on a scaled display.
     expect(resize).toHaveBeenCalledWith({ width: 312 })
   })
@@ -92,7 +108,39 @@ describe('cacheThumbnails', () => {
     await cacheThumbnails(dir, [{ modId: 'small', url: `${baseUrl}/s.png` }])
 
     expect(resize).not.toHaveBeenCalled()
-    expect(readFileSync(join(dir, thumbnailFileName('small'))).toString()).toBe('jpeg@200')
+    expect(readFileSync(jpegPath('small')).toString()).toBe('jpeg@200')
+  })
+
+  /**
+   * A third of the live catalog serves WebP, much of it under a .png/.jpg name
+   * with a matching Content-Type, so the format is only visible in the bytes.
+   */
+  it('stores formats nativeImage cannot decode verbatim', async () => {
+    const baseUrl = await startServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'image/png' })
+      res.end(fakeWebp())
+    })
+
+    const stored = await cacheThumbnails(dir, [{ modId: 'webp', url: `${baseUrl}/lies.png` }])
+
+    expect(stored).toBe(1)
+    expect(resize).not.toHaveBeenCalled()
+    const file = join(dir, `${thumbnailBaseName('webp')}.webp`)
+    expect(readFileSync(file)).toEqual(fakeWebp())
+  })
+
+  it('does not re-download a thumbnail cached under another format', async () => {
+    let requests = 0
+    const baseUrl = await startServer((_req, res) => {
+      requests += 1
+      res.writeHead(200)
+      res.end(fakeWebp())
+    })
+
+    writeFileSync(join(dir, `${thumbnailBaseName('cached')}.webp`), 'existing')
+
+    expect(await cacheThumbnails(dir, [{ modId: 'cached', url: `${baseUrl}/c.png` }])).toBe(0)
+    expect(requests).toBe(0)
   })
 
   it('skips thumbnails that are already cached', async () => {
@@ -103,13 +151,13 @@ describe('cacheThumbnails', () => {
       res.end(fakeImage(640))
     })
 
-    writeFileSync(join(dir, thumbnailFileName('cached')), 'existing')
+    writeFileSync(jpegPath('cached'), 'existing')
 
     const stored = await cacheThumbnails(dir, [{ modId: 'cached', url: `${baseUrl}/c.png` }])
 
     expect(requests).toBe(0)
     expect(stored).toBe(0)
-    expect(readFileSync(join(dir, thumbnailFileName('cached'))).toString()).toBe('existing')
+    expect(readFileSync(jpegPath('cached')).toString()).toBe('existing')
   })
 
   it('keeps going when one thumbnail fails or is undecodable', async () => {
@@ -136,15 +184,23 @@ describe('cacheThumbnails', () => {
 
     // A thumbnail is decoration; one bad image must not fail a refresh.
     expect(stored).toBe(1)
-    expect(existsSync(join(dir, thumbnailFileName('good')))).toBe(true)
-    expect(existsSync(join(dir, thumbnailFileName('missing')))).toBe(false)
-    expect(existsSync(join(dir, thumbnailFileName('garbage')))).toBe(false)
+    expect(existsSync(jpegPath('good'))).toBe(true)
+    expect(existsSync(jpegPath('missing'))).toBe(false)
+    // HTML matches no passthrough signature, so it never reaches the cache.
+    expect(findThumbnailFile(dir, 'garbage')).toBeNull()
   })
 
   it('sanitises the mod id into the cache file name', () => {
-    expect(thumbnailFileName('hylianmodding:the_missing_link')).toBe(
-      'hylianmodding_the_missing_link.jpg'
+    expect(thumbnailBaseName('hylianmodding:the_missing_link')).toBe(
+      'hylianmodding_the_missing_link'
     )
-    expect(thumbnailFileName('../../etc/passwd')).toBe('______etc_passwd.jpg')
+    expect(thumbnailBaseName('../../etc/passwd')).toBe('______etc_passwd')
+  })
+
+  it('finds a cached thumbnail whatever format it landed in', () => {
+    writeFileSync(join(dir, `${thumbnailBaseName('a:b')}.webp`), 'x')
+
+    expect(findThumbnailFile(dir, 'a:b')).toBe(join(dir, 'a_b.webp'))
+    expect(findThumbnailFile(dir, 'nothing')).toBeNull()
   })
 })

@@ -1,8 +1,6 @@
 import { net, protocol } from 'electron'
-import { existsSync } from 'node:fs'
-import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { thumbnailFileName } from './cache'
+import { findThumbnailFile } from './cache'
 
 export const THUMBNAIL_SCHEME = 'ocaris-thumb'
 
@@ -24,14 +22,15 @@ export function registerThumbnailScheme(): void {
 
 export function registerThumbnailProtocol(dir: string): void {
   protocol.handle(THUMBNAIL_SCHEME, (request) => {
-    // The mod id is the only thing taken from the URL, and thumbnailFileName
+    // The mod id is the only thing taken from the URL, and thumbnailBaseName
     // strips everything outside [A-Za-z0-9_-], so no path traversal survives.
+    // The extension comes from the cache's own fixed list, never from the URL.
     const modId = decodeURIComponent(new URL(request.url).pathname.replace(/^\//, ''))
-    const file = join(dir, thumbnailFileName(modId))
+    const file = modId ? findThumbnailFile(dir, modId) : null
 
     // A mod whose thumbnail isn't cached (or failed to download) 404s, and the
     // row falls back to its placeholder tile.
-    if (!modId || !existsSync(file)) {
+    if (!file) {
       return Promise.resolve(new Response(null, { status: 404 }))
     }
 

@@ -43,6 +43,7 @@ All same-origin, `GET`, no auth, no pagination, plain JSON:
 - `supported_games` values seen: `"OoT"`, `"MM"` (Majora's Mask). **Filter to `"OoT"`** - this catalog covers more than one game.
 - `completion_status` casing is inconsistent across entries (`"complete"`, `"Complete"`, `"Demo"`) - compare case-insensitively if used at all.
 - `download_link` is sometimes root-relative with a leading slash, sometimes without (`"mods/star_fox_64_survival/..."`) - always resolve against the site origin rather than assuming a leading `/`.
+- **`thumbnail_image`'s extension and the server's `Content-Type` both lie about the format.** 15 of the 41 OoT thumbnails are WebP; 10 of those are served as `thumbnail.png`/`.jpg` with a matching `image/png`/`image/jpeg` header. Only the magic bytes are truthful. This matters because Electron's `nativeImage` decodes PNG and JPEG only - it returns an *empty* image for WebP rather than throwing, so a naive decode-and-resize silently drops a third of the catalog's thumbnails (see `src/main/thumbnails/cache.ts`).
 
 ## Complications for WP6/WP8/WP9 (found by actually downloading samples, not just reading `mod.json`)
 
