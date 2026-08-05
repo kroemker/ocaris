@@ -8,6 +8,8 @@ export interface AppConfig {
   romVerified: boolean
   romUserConfirmed: boolean
   theme: ThemeSource
+  /** Root directory for patches/roms, or null to use the default userData location. */
+  storageRoot: string | null
   updatedAt: number | null
 }
 
@@ -17,6 +19,7 @@ interface AppConfigRow {
   rom_verified: number
   rom_user_confirmed: number
   theme: ThemeSource | null
+  storage_root: string | null
   updated_at: number | null
 }
 
@@ -28,6 +31,7 @@ const EMPTY_CONFIG: AppConfig = {
   romVerified: false,
   romUserConfirmed: false,
   theme: DEFAULT_THEME,
+  storageRoot: null,
   updatedAt: null
 }
 
@@ -38,6 +42,7 @@ function rowToConfig(row: AppConfigRow): AppConfig {
     romVerified: row.rom_verified === 1,
     romUserConfirmed: row.rom_user_confirmed === 1,
     theme: row.theme ?? DEFAULT_THEME,
+    storageRoot: row.storage_root,
     updatedAt: row.updated_at
   }
 }
@@ -45,7 +50,7 @@ function rowToConfig(row: AppConfigRow): AppConfig {
 export function getAppConfig(db: Database.Database): AppConfig {
   const row = db
     .prepare(
-      'SELECT rom_path, rom_variant, rom_verified, rom_user_confirmed, theme, updated_at FROM app_config WHERE id = 1'
+      'SELECT rom_path, rom_variant, rom_verified, rom_user_confirmed, theme, storage_root, updated_at FROM app_config WHERE id = 1'
     )
     .get() as AppConfigRow | undefined
 
@@ -93,6 +98,21 @@ export function saveTheme(db: Database.Database, theme: ThemeSource): AppConfig 
     `INSERT INTO app_config (id, theme) VALUES (1, @theme)
      ON CONFLICT(id) DO UPDATE SET theme = excluded.theme`
   ).run({ theme })
+
+  return getAppConfig(db)
+}
+
+/**
+ * Writes only the storage_root column, for the same reason saveTheme only
+ * writes theme: the config row may not exist yet, and this must not clobber
+ * ROM fields set independently. Pass null to fall back to the default
+ * userData location.
+ */
+export function saveStorageRoot(db: Database.Database, storageRoot: string | null): AppConfig {
+  db.prepare(
+    `INSERT INTO app_config (id, storage_root) VALUES (1, @storageRoot)
+     ON CONFLICT(id) DO UPDATE SET storage_root = excluded.storage_root`
+  ).run({ storageRoot })
 
   return getAppConfig(db)
 }

@@ -15,7 +15,8 @@ describe('runMigrations', () => {
       { id: 3, name: 'emulators' },
       { id: 4, name: 'mods' },
       { id: 5, name: 'app_config_theme' },
-      { id: 6, name: 'mods_first_seen_at' }
+      { id: 6, name: 'mods_first_seen_at' },
+      { id: 7, name: 'app_config_storage_root' }
     ])
 
     db.close()
@@ -30,7 +31,7 @@ describe('runMigrations', () => {
     const count = db.prepare('SELECT COUNT(*) as count FROM schema_migrations').get() as {
       count: number
     }
-    expect(count.count).toBe(6)
+    expect(count.count).toBe(7)
 
     db.close()
   })
@@ -43,6 +44,20 @@ describe('runMigrations', () => {
     const row = db.prepare('SELECT theme FROM app_config WHERE id = 1').get() as { theme: string }
 
     expect(row.theme).toBe('system')
+
+    db.close()
+  })
+
+  it('gives app_config a storage_root column defaulting to null', () => {
+    const db = new Database(':memory:')
+    runMigrations(db)
+
+    db.prepare('INSERT INTO app_config (id, rom_path) VALUES (1, ?)').run('/roms/oot.z64')
+    const row = db.prepare('SELECT storage_root FROM app_config WHERE id = 1').get() as {
+      storage_root: string | null
+    }
+
+    expect(row.storage_root).toBeNull()
 
     db.close()
   })

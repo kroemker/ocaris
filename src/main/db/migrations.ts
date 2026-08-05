@@ -103,6 +103,15 @@ const migrations: Migration[] = [
         UPDATE mods SET first_seen_at = fetched_at WHERE first_seen_at IS NULL;
       `)
     }
+  },
+  {
+    id: 7,
+    name: 'app_config_storage_root',
+    up: (db) => {
+      // NULL means "use the default userData location" - there is no
+      // separate boolean, the column doubling as its own default marker.
+      db.exec(`ALTER TABLE app_config ADD COLUMN storage_root TEXT;`)
+    }
   }
 ]
 
