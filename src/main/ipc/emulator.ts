@@ -4,6 +4,7 @@ import {
   type DetectedEmulator,
   type Emulator,
   type EmulatorInput,
+  type EmulatorInstallResult,
   type EmulatorSaveResult
 } from '@shared/ipc'
 import {
@@ -14,10 +15,35 @@ import {
   updateEmulator
 } from '../db/emulators'
 import { getDatabase } from '../db'
-import { detectEmulators } from '../emulator/detect'
+import { currentPlatform, detectEmulators } from '../emulator/detect'
+import { installKnownEmulator } from '../emulator/install'
 import { launchEmulator } from '../emulator/launch'
 import { validateExecutablePath } from '../emulator/validate'
 import { validateEmulatorInput } from '../emulator/validateInput'
+import { getEmulatorInstallDir } from '../storage/paths'
+
+interface InFlightInstall {
+  controller: AbortController
+  promise: Promise<EmulatorInstallResult>
+}
+
+/**
+ * In-flight installs, keyed by known emulator id, so emulator:install-cancel
+ * can abort one without touching others. Unlike src/main/ipc/mods.ts's
+ * inFlight map, a second call for an id already installing joins the same
+ * promise instead of superseding it: installKnownEmulator wipes its whole
+ * target directory at the start of a run and again on abort, so two
+ * concurrent runs for the same id (which would also race on the same
+ * download filename, since both resolve the same "latest release") could
+ * otherwise delete each other's in-progress work.
+ */
+const inFlightInstalls = new Map<string, InFlightInstall>()
+
+/** True while any known emulator is mid-download, so a storage relocation
+ *  can refuse to move files out from under a write in progress. */
+export function hasActiveEmulatorInstalls(): boolean {
+  return inFlightInstalls.size > 0
+}
 
 async function validateAndSave(
   input: EmulatorInput,
@@ -88,4 +114,39 @@ export function registerEmulatorIpcHandlers(): void {
       await launchEmulator(emulator.executablePath, emulator.argsTemplate, romPath)
     }
   )
+
+  ipcMain.handle(
+    IpcChannel.EmulatorInstall,
+    (_event, knownId: string): Promise<EmulatorInstallResult> => {
+      const existing = inFlightInstalls.get(knownId)
+      if (existing) return existing.promise
+
+      const platform = currentPlatform()
+      if (!platform) {
+        return Promise.resolve({
+          ok: false,
+          executablePath: null,
+          errorMessage: 'Unsupported platform.'
+        })
+      }
+
+      const controller = new AbortController()
+      const promise = installKnownEmulator({
+        knownId,
+        platform,
+        installDir: getEmulatorInstallDir(getDatabase()),
+        signal: controller.signal
+      }).finally(() => inFlightInstalls.delete(knownId))
+
+      inFlightInstalls.set(knownId, { controller, promise })
+      return promise
+    }
+  )
+
+  ipcMain.handle(IpcChannel.EmulatorInstallCancel, (_event, knownId: string): boolean => {
+    const existing = inFlightInstalls.get(knownId)
+    if (!existing) return false
+    existing.controller.abort()
+    return true
+  })
 }

@@ -7,11 +7,13 @@ import { saveStorageRoot } from '../db/appConfig'
 import {
   getBaseRomDir,
   getDefaultStorageRoot,
+  getEmulatorInstallDir,
   getPatchCacheDir,
   getPatchedRomDir,
   getStorageRoot
 } from '../storage/paths'
 import { assertWritableDirectory, relocateStorage } from '../storage/relocate'
+import { hasActiveEmulatorInstalls } from './emulator'
 import { hasActiveInstalls } from './mods'
 
 async function measure(dir: string): Promise<{ fileCount: number; totalBytes: number }> {
@@ -75,7 +77,7 @@ export function registerStorageIpcHandlers(): void {
       if (path !== null && typeof path !== 'string') {
         throw new Error('Storage location must be a folder path or null.')
       }
-      if (hasActiveInstalls()) {
+      if (hasActiveInstalls() || hasActiveEmulatorInstalls()) {
         throw new Error('Wait for downloads in progress to finish before changing the location.')
       }
 
@@ -83,6 +85,7 @@ export function registerStorageIpcHandlers(): void {
       const oldPatchCacheDir = getPatchCacheDir(db)
       const oldPatchedRomDir = getPatchedRomDir(db)
       const oldBaseRomDir = getBaseRomDir(db)
+      const oldEmulatorInstallDir = getEmulatorInstallDir(db)
 
       const newRoot = path ?? getDefaultStorageRoot()
       await assertWritableDirectory(newRoot)
@@ -92,9 +95,11 @@ export function registerStorageIpcHandlers(): void {
         oldPatchCacheDir,
         oldPatchedRomDir,
         oldBaseRomDir,
+        oldEmulatorInstallDir,
         newPatchCacheDir: join(newRoot, 'patches'),
         newPatchedRomDir: join(newRoot, 'roms'),
-        newBaseRomDir: join(newRoot, 'base')
+        newBaseRomDir: join(newRoot, 'base'),
+        newEmulatorInstallDir: join(newRoot, 'emulators')
       })
 
       saveStorageRoot(db, path)

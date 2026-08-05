@@ -26,6 +26,8 @@ export const IpcChannel = {
   EmulatorSetDefault: 'emulator:set-default',
   EmulatorLaunch: 'emulator:launch',
   EmulatorDetect: 'emulator:detect',
+  EmulatorInstall: 'emulator:install',
+  EmulatorInstallCancel: 'emulator:install-cancel',
   CatalogRefresh: 'catalog:refresh',
   CatalogList: 'catalog:list',
   CatalogStats: 'catalog:stats',
@@ -114,6 +116,12 @@ export interface EmulatorSaveResult {
 export interface DetectedEmulator {
   knownId: string
   executablePath: string
+}
+
+export interface EmulatorInstallResult {
+  ok: boolean
+  executablePath: string | null
+  errorMessage: string | null
 }
 
 export type ModStatusState = 'not_downloaded' | 'downloading' | 'ready' | 'error'

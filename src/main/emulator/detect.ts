@@ -35,7 +35,7 @@ async function isExecutableFile(path: string): Promise<boolean> {
   return result.executable
 }
 
-function currentPlatform(): EmulatorPlatform | null {
+export function currentPlatform(): EmulatorPlatform | null {
   const platform = process.platform
   return platform === 'win32' || platform === 'darwin' || platform === 'linux' ? platform : null
 }
