@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, open, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type Database from 'better-sqlite3'
 import { applyBpsPatch } from '../../patch/bps'
@@ -19,6 +19,17 @@ export interface InstallModInput {
 
 function safeFileStem(id: string): string {
   return id.replace(/[^a-zA-Z0-9_-]/g, '_')
+}
+
+/** Sniffs the first bytes for HTML, which no patch or archive starts with. */
+async function looksLikeWebPage(path: string): Promise<boolean> {
+  const handle = await open(path)
+  try {
+    const { buffer, bytesRead } = await handle.read(Buffer.alloc(64), 0, 64, 0)
+    return /^\s*<(?:!doctype|html|\?xml)/i.test(buffer.subarray(0, bytesRead).toString('latin1'))
+  } finally {
+    await handle.close()
+  }
 }
 
 /**
@@ -81,6 +92,18 @@ export async function installMod(input: InstallModInput): Promise<ModStatus> {
         input.onProgress?.(progress)
       }
     })
+
+    // A link can end in .bps or .zip and still hand back a web page: a
+    // file-host page that wants a click-through (Dropbox's ?dl=0), or an
+    // expired attachment. Saying so beats the "missing BPS1 magic" the patch
+    // parser would report a moment later.
+    if (await looksLikeWebPage(downloadPath)) {
+      return setModStatus(db, modId, {
+        state: 'error',
+        errorMessage:
+          'That link returned a web page rather than a patch file - open the mod page and download it by hand.'
+      })
+    }
 
     const source = await readFile(romPath)
 

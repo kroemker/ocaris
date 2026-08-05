@@ -28,7 +28,7 @@ src/main/ipc        ipcMain handlers, one module per feature area
 src/main/rom        ROM header verification (N64 header CRC1/CRC2 check)
 src/main/emulator   Emulator executable-path validation, launch and auto-detect
 src/main/download   Generic HTTP download engine (streaming, progress, cancellation)
-src/main/catalog    Pluggable ModCatalogSource interface + hylianmodding.com adapter
+src/main/catalog    ModCatalogSource interface, hylianmodding + wiki adapters, merge
 src/main/mods       Mod install pipeline (download patch -> apply -> ready)
 src/main/storage    Where patches, patched ROMs and cached thumbnails live
 src/main/thumbnails Thumbnail download/downscale cache + ocaris-thumb:// handler
@@ -68,11 +68,16 @@ SQLite schema covers four entities: `app_config` (verified ROM + theme preferenc
 
 `runMigrations(db, upToId?)` takes an optional stop point. That's for tests: it's the only way to build the pre-migration schema, insert a row the old way, and check that a backfill actually backfills.
 
-## Catalog source
+## Catalog sources
 
-`src/main/catalog/types.ts` defines `ModCatalogSource` (`fetchCatalog(): Promise<ModRecord[]>`) so the backing source is swappable - see `docs/catalog-source-spec.md` for why. `HylianModdingCatalogSource` (`src/main/catalog/hylianModdingSource.ts`) is the only implementation so far: hylianmodding.com/mods turns out to be a static, same-origin JSON catalog rather than a bespoke API (`/mods/index.json` + `/mods/<id>/mod.json`), fetched with a small concurrency cap rather than ~140 simultaneous requests. Entries are filtered to `supported_games === "OoT"` (the site also lists Majora's Mask mods) and normalized into `ModRecord`, stashing the raw `download_link`/thumbnail/completion-status in the free-form `metadata` column.
+`src/main/catalog/types.ts` defines `ModCatalogSource` (`fetchCatalog(): Promise<ModRecord[]>`); two implement it, and a refresh fetches both. See `docs/catalog-source-spec.md` for how each was reverse-engineered and what its data is actually like.
 
-Verified against the real live site (not just recorded fixtures) during development: 41 real OoT mods fetched correctly, MM entries filtered out, and both same-origin and external (GitHub Releases) download links resolved as expected. The test suite itself only hits a local HTTP server serving fixtures adapted from that real data, though - no live network dependency in CI or for other contributors.
+- **`HylianModdingCatalogSource`** - hylianmodding.com/mods turns out to be a static, same-origin JSON catalog rather than a bespoke API (`/mods/index.json` + `/mods/<id>/mod.json`), fetched with a small concurrency cap rather than ~140 simultaneous requests. Filtered to `supported_games === "OoT"`; 41 mods. It hosts real patch files, which is why it's the primary source.
+- **`ZeldaFandomCatalogSource`** - zelda-64-mods.fandom.com is a MediaWiki, so its read API serves the whole `Category:Ocarina of Time Mods` (132 mods) and every page's wikitext in ~6 requests. `src/main/catalog/wikitext.ts` reads the `{{Infobox_mod}}` and the blurb out of that. Broader but looser: two thirds of its download links point at a MediaFire/Drive/Discord landing page, and those rows offer "Open page" rather than a Download button that could only fail.
+
+`src/main/catalog/merge.ts` folds them into one row per mod - 36 of hylianmodding's 41 also have a wiki page. The primary source keeps its id, so a mod the user already installed doesn't lose its status when a second catalog starts describing it; the merged row takes the longest description and, crucially, whichever download link the installer can actually use. Live, that's 137 rows of which 66 are installable, against 41 rows and 29 installable from hylianmodding alone.
+
+A source that's unreachable is reported in Settings and skipped; the others still refresh. Both were verified against the live sites during development, but the test suite only hits a local HTTP server serving fixtures adapted from that real data - no live network dependency in CI or for other contributors.
 
 ## Download + install pipeline
 

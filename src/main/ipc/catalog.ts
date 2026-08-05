@@ -19,17 +19,15 @@ import { cacheThumbnails, type ThumbnailRequest } from '../thumbnails/cache'
 import { thumbnailUrl } from '../thumbnails/protocol'
 import { beginInstall, endInstall } from './mods'
 import { HylianModdingCatalogSource } from '../catalog/hylianModdingSource'
+import { ZeldaFandomCatalogSource } from '../catalog/zeldaFandomSource'
 import { refreshCatalog } from '../catalog/refresh'
+import type { CatalogMetadata } from '../catalog/types'
+import { classifyDownloadLink } from '../mods/resolvePatch'
 import { installMod } from '../mods/install'
 
-interface HylianModMetadata {
-  downloadLink: string | null
-  thumbnailUrl: string | null
-  completionStatus: string | null
-}
-
 function toModSummary(mod: ModWithStatus): ModSummary {
-  const metadata = (mod.metadata ?? {}) as Partial<HylianModMetadata>
+  const metadata = (mod.metadata ?? {}) as Partial<CatalogMetadata>
+  const downloadLink = metadata.downloadLink ?? null
   return {
     id: mod.id,
     source: mod.source,
@@ -40,8 +38,15 @@ function toModSummary(mod: ModWithStatus): ModSummary {
     // with an upstream image but no cached copy yet 404s and falls back to the
     // placeholder tile.
     thumbnailUrl: metadata.thumbnailUrl ? thumbnailUrl(mod.id) : null,
-    downloadLink: metadata.downloadLink ?? null,
+    downloadLink,
+    installable: downloadLink !== null && classifyDownloadLink(downloadLink) !== 'unsupported',
+    pageUrl: metadata.pageUrl ?? null,
     completionStatus: metadata.completionStatus ?? null,
+    // Rows written before merging existed carry no source list; the row they
+    // came from is still one source.
+    sources: metadata.sources?.map(({ source, pageUrl }) => ({ source, pageUrl })) ?? [
+      { source: mod.source, pageUrl: metadata.pageUrl ?? null }
+    ],
     status: {
       state: mod.status.state,
       patchedRomPath: mod.status.patchedRomPath,
@@ -52,12 +57,16 @@ function toModSummary(mod: ModWithStatus): ModSummary {
   }
 }
 
-const catalogSource = new HylianModdingCatalogSource()
+/**
+ * Priority order, which is also merge order: hylianmodding.com first because
+ * it hosts real patch files, then the wiki for everything it doesn't cover.
+ */
+const catalogSources = [new HylianModdingCatalogSource(), new ZeldaFandomCatalogSource()]
 
 /** Every mod that advertises an upstream thumbnail, for the cache to fill in. */
 function collectThumbnailRequests(db: Database.Database): ThumbnailRequest[] {
   return listModsWithStatus(db).flatMap((mod) => {
-    const metadata = (mod.metadata ?? {}) as Partial<HylianModMetadata>
+    const metadata = (mod.metadata ?? {}) as Partial<CatalogMetadata>
     return metadata.thumbnailUrl ? [{ modId: mod.id, url: metadata.thumbnailUrl }] : []
   })
 }
@@ -65,7 +74,7 @@ function collectThumbnailRequests(db: Database.Database): ThumbnailRequest[] {
 export function registerCatalogIpcHandlers(): void {
   ipcMain.handle(IpcChannel.CatalogRefresh, async (): Promise<CatalogRefreshResult> => {
     const db = getDatabase()
-    const result = await refreshCatalog(db, catalogSource)
+    const result = await refreshCatalog(db, catalogSources)
 
     // Awaited rather than backgrounded: the refresh already takes seconds, and
     // finishing with rows that still show placeholders looks broken. Only
@@ -91,7 +100,7 @@ export function registerCatalogIpcHandlers(): void {
       throw new Error(`Mod ${modId} not found`)
     }
 
-    const metadata = (mod.metadata ?? {}) as Partial<HylianModMetadata>
+    const metadata = (mod.metadata ?? {}) as Partial<CatalogMetadata>
     if (!metadata.downloadLink) {
       throw new Error(`Mod ${modId} has no download link`)
     }

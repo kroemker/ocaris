@@ -22,7 +22,10 @@ function mod({ status, ...overrides }: ModOverrides): ModSummary {
     description: null,
     thumbnailUrl: null,
     downloadLink: 'https://example.test/patch.bps',
+    installable: true,
+    pageUrl: null,
     completionStatus: null,
+    sources: [{ source: 'test', pageUrl: null }],
     ...overrides,
     status: {
       state: 'not_downloaded',
@@ -198,14 +201,51 @@ describe('actionsFor', () => {
     ])
   })
 
-  it('disables Download and hides the mod page when there is no download link', () => {
-    const linkless = mod({ id: 'n', downloadLink: null })
-    const [download] = actionsFor(linkless, { hasEmulator: true })
-    expect(download.id).toBe('download')
-    expect(download.disabled).toBe(true)
+  it('offers nothing but a disabled Open page when there is no link at all', () => {
+    const linkless = mod({ id: 'n', downloadLink: null, installable: false })
+    const [only] = actionsFor(linkless, { hasEmulator: true })
+    expect(only.id).toBe('openPage')
+    expect(only.disabled).toBe(true)
 
-    const erroring = mod({ id: 'n2', downloadLink: null, status: { state: 'error' } })
+    const erroring = mod({
+      id: 'n2',
+      downloadLink: null,
+      installable: false,
+      status: { state: 'error' }
+    })
     expect(actionsFor(erroring, { hasEmulator: true }).map((a) => a.id)).toEqual(['retry'])
+  })
+
+  /**
+   * Two thirds of the wiki's mods link to a MediaFire or Drive landing page.
+   * A Download button there could only ever fail, so the row leads with the
+   * page instead.
+   */
+  it('replaces Download with Open page for a link the installer cannot use', () => {
+    const manual = mod({
+      id: 'm',
+      downloadLink: 'https://www.mediafire.com/file/abc',
+      installable: false,
+      pageUrl: 'https://zelda-64-mods.fandom.com/wiki/Burger_Quest'
+    })
+
+    const actions = actionsFor(manual, { hasEmulator: true })
+    expect(actions.map((a) => a.id)).toEqual(['openPage'])
+    expect(actions[0].primary).toBe(true)
+    expect(actions[0].disabled).toBeFalsy()
+  })
+
+  it('retries an errored mod only when its link is installable', () => {
+    const manual = mod({
+      id: 'e2',
+      downloadLink: 'https://www.mediafire.com/file/abc',
+      installable: false,
+      status: { state: 'error' }
+    })
+
+    const [retry] = actionsFor(manual, { hasEmulator: true })
+    expect(retry.id).toBe('retry')
+    expect(retry.disabled).toBe(true)
   })
 
   it('disables everything actionable while a request is in flight', () => {

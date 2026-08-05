@@ -359,6 +359,19 @@
   opacity: 0.5;
 }
 
+/* Source tags read as metadata, not as status: quieter than the state pill
+   on the rail so they don't compete with it. */
+.row .meta .src {
+  padding: 1px 6px;
+  font-size: 10.5px;
+  color: var(--dim);
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+  background: color-mix(in srgb, var(--dim) 10%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
 .row .desc {
   display: -webkit-box;
   overflow: hidden;

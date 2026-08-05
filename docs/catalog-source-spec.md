@@ -43,7 +43,7 @@ All same-origin, `GET`, no auth, no pagination, plain JSON:
 - `supported_games` values seen: `"OoT"`, `"MM"` (Majora's Mask). **Filter to `"OoT"`** - this catalog covers more than one game.
 - `completion_status` casing is inconsistent across entries (`"complete"`, `"Complete"`, `"Demo"`) - compare case-insensitively if used at all.
 - `download_link` is sometimes root-relative with a leading slash, sometimes without (`"mods/star_fox_64_survival/..."`) - always resolve against the site origin rather than assuming a leading `/`.
-- **`thumbnail_image`'s extension and the server's `Content-Type` both lie about the format.** 15 of the 41 OoT thumbnails are WebP; 10 of those are served as `thumbnail.png`/`.jpg` with a matching `image/png`/`image/jpeg` header. Only the magic bytes are truthful. This matters because Electron's `nativeImage` decodes PNG and JPEG only - it returns an *empty* image for WebP rather than throwing, so a naive decode-and-resize silently drops a third of the catalog's thumbnails (see `src/main/thumbnails/cache.ts`).
+- **`thumbnail_image`'s extension and the server's `Content-Type` both lie about the format.** 15 of the 41 OoT thumbnails are WebP; 10 of those are served as `thumbnail.png`/`.jpg` with a matching `image/png`/`image/jpeg` header. Only the magic bytes are truthful. This matters because Electron's `nativeImage` decodes PNG and JPEG only - it returns an _empty_ image for WebP rather than throwing, so a naive decode-and-resize silently drops a third of the catalog's thumbnails (see `src/main/thumbnails/cache.ts`).
 
 ## Complications for WP6/WP8/WP9 (found by actually downloading samples, not just reading `mod.json`)
 
@@ -65,3 +65,49 @@ Build `HylianModdingCatalogSource implements ModCatalogSource`:
 4. Classify `download_link` by extension/host at install time (WP8/WP9's job, not the catalog fetch): same-origin `.bps` → download directly; same-origin `.zip` → download, extract, CRC-match; anything else (`.7z`, external host) → mark as "manual download" and surface the link in the UI instead of an automatic install button.
 
 This is a bigger lift than the original WP8/WP9 (which assumed "the download link is a patch file") accounted for - flagging that explicitly rather than quietly narrowing scope.
+
+---
+
+# Second source — zelda-64-mods.fandom.com
+
+WP5 named this as the fallback if hylianmodding turned out to be unworkable. It didn't, so this is a second source alongside it rather than a replacement (`src/main/catalog/zeldaFandomSource.ts`).
+
+## Endpoints
+
+It's a MediaWiki (1.43), so there is a real read API - nothing is scraped. All `GET`, no auth:
+
+| Purpose         | Request                                                                                                                                                                                    |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Mods + wikitext | `/api.php?action=query&format=json&formatversion=2&generator=categorymembers&gcmtitle=Category:Ocarina of Time Mods&gcmnamespace=0&gcmlimit=50&prop=revisions&rvprop=content&rvslots=main` |
+| Thumbnails      | `/api.php?action=query&format=json&formatversion=2&prop=imageinfo&iiprop=url&iiurlwidth=312&titles=File:A\|File:B`                                                                         |
+
+Both cap at 50 items per request; the mod query paginates through `continue`. A whole refresh is ~6 requests against ~90 for hylianmodding, because the wikitext comes back with the listing rather than one request per mod. MediaWiki reports its own failures with **HTTP 200 and an `error` object**, so checking the status code is not enough.
+
+`Category:Ocarina of Time Mods` holds **132 articles** (the wiki also carries `Majora's Mask Mods`, out of scope). Every one of them has a flat `{{Infobox_mod}}`; a page without one is a list article, not a mod.
+
+## `{{Infobox_mod}}` fields (coverage across all 132)
+
+| Field                  | Present | Notes                                                                    |
+| ---------------------- | ------- | ------------------------------------------------------------------------ |
+| `creator`              | 132     | Free text, already comma-joined                                          |
+| `download`             | 131     | See below - usually _not_ a file                                         |
+| `status`               | 127     | Same inconsistent casing as hylianmodding (`Complete`/`complete`/`Demo`) |
+| `rom_version`          | 121     | Free text, unusable as structured data                                   |
+| `image1`               | 118     | A `File:` name, resolved separately via `imageinfo`                      |
+| `year`                 | 101     | Release date, **not** a last-modified stamp                              |
+| `alternative_download` | 97      | Often the hylianmodding mirror                                           |
+| `3rd_download_link`    | 21      |                                                                          |
+
+Descriptions have to be parsed out of the wikitext: Fandom does not install the `extracts` extension, so there is no plain-text endpoint. Only 64 of 132 pages have a `==Description==` section; the rest open with prose. In both layouts the author's own pitch is the _italicised_ paragraph, with the surrounding text being wiki boilerplate ("X is a ROM hack created by Y"), which is what `src/main/catalog/wikitext.ts` keys on.
+
+## Complications
+
+**1. Two thirds of it is browse-only.** Of the 132 `download` links: 82 have no file extension at all. By host, they are MediaFire (21), romhacking.net (15), Google Drive (11), GitHub (6), RetroAchievements (5), Discord (5), YouTube (4), and a long tail of Dropbox/Mega/wixsite/pCloud. Taking the best of all three link fields per mod, only **40 of 132** classify as installable. Those rows offer "Open page" instead of a Download button.
+
+**2. The extension still lies sometimes.** Four links end in `.bps`/`.zip` but don't serve one: a Dropbox `?dl=0` link returns its click-through page, and three `cdn.discordapp.com` attachments have expired to 404. Discord CDN and GitHub raw links _do_ serve files directly, so this isn't a host that can be denylisted - `installMod` sniffs the downloaded bytes for HTML instead and reports that plainly.
+
+**3. It overlaps hylianmodding heavily.** 36 of hylianmodding's 41 OoT mods also have a wiki page, matching on name once case and punctuation are stripped (the wiki uses a curly apostrophe in some titles). Hence `src/main/catalog/merge.ts`: one row per mod, hylianmodding as the primary (it hosts the actual patch files, and keeping its id means an already-installed mod keeps its status row), with the wiki filling in descriptions and contributing an installable link where hylianmodding only has a `.7z` or a Releases page.
+
+## Live numbers after merging
+
+41 + 132 → **137 rows**, 36 of them merged from both sources. 122 have a thumbnail, all 137 have a description and an author, and **66 are installable** against 29 for hylianmodding alone - the wiki's mirror links more than double what the app can install by itself.

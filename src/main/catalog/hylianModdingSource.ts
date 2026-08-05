@@ -91,6 +91,7 @@ export class HylianModdingCatalogSource implements ModCatalogSource {
           ? resolveUrl(this.baseUrl, detail.thumbnail_image)
           : null,
         completionStatus: detail.completion_status ?? null,
+        pageUrl: `${this.baseUrl}/mods/${encodeURIComponent(detail.id)}`,
         lastUpdated: detail.last_updated ?? null
       }
     }

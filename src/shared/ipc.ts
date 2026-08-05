@@ -134,6 +134,12 @@ export interface ModStatusSummary {
   errorMessage: string | null
 }
 
+/** A catalog a mod row came from. Merged rows list more than one. */
+export interface ModSourceSummary {
+  source: string
+  pageUrl: string | null
+}
+
 export interface ModSummary {
   id: string
   source: string
@@ -142,12 +148,28 @@ export interface ModSummary {
   description: string | null
   thumbnailUrl: string | null
   downloadLink: string | null
+  /**
+   * Whether downloadLink is something the installer can act on. Most of the
+   * wiki's links are MediaFire/Drive/Discord landing pages, so those rows
+   * offer the mod page instead of a Download button that could only fail.
+   */
+  installable: boolean
+  /** Where "Open page" goes: the mod's own page, not its download link. */
+  pageUrl: string | null
   completionStatus: string | null
+  sources: ModSourceSummary[]
   status: ModStatusSummary
 }
 
-export interface CatalogRefreshResult {
+export interface CatalogSourceResult {
   source: string
+  /** Mods contributed before merging; null when the source failed. */
+  count: number | null
+  errorMessage: string | null
+}
+
+export interface CatalogRefreshResult {
   count: number
   refreshedAt: number
+  sources: CatalogSourceResult[]
 }

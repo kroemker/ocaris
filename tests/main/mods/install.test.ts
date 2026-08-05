@@ -187,6 +187,37 @@ describe('installMod', () => {
     db.close()
   })
 
+  /**
+   * A .bps or .zip URL on a file host can still serve a click-through page -
+   * Dropbox's ?dl=0 links do exactly this - and the extension is the only
+   * thing the classifier had to go on.
+   */
+  it('reports a link that serves a web page instead of the patch it advertises', async () => {
+    const romPath = join(dir, 'source.z64')
+    writeFileSync(romPath, Buffer.from('some rom bytes'))
+
+    const baseUrl = await startServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'text/html' })
+      res.end('<!DOCTYPE html><html><body>Click here to download</body></html>')
+    })
+
+    const { db, modId } = createDbWithMod()
+
+    const status = await installMod({
+      db,
+      modId,
+      downloadUrl: `${baseUrl}/HoH-Demo-v1.zip?dl=0`,
+      romPath,
+      patchCacheDir: join(dir, 'patches'),
+      patchedRomDir: join(dir, 'roms')
+    })
+
+    expect(status.state).toBe('error')
+    expect(status.errorMessage).toMatch(/web page/i)
+
+    db.close()
+  })
+
   it('resolves to an error status (does not throw) when the patch does not match the source ROM', async () => {
     const correctSource = Buffer.from('AAAAABBBBBCCCCC', 'ascii')
     const wrongSource = Buffer.from('ZZZZZBBBBBCCCCC', 'ascii')

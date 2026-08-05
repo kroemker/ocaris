@@ -7,6 +7,7 @@ import StatusLine from './components/StatusLine'
 import SettingsDialog, { type SettingsPane } from './components/settings/SettingsDialog'
 import {
   countsByFilter,
+  pageLink,
   visibleMods,
   type LibraryFilter,
   type LibrarySort,
@@ -129,9 +130,11 @@ function App(): React.JSX.Element {
           await window.api.mod.reveal(mod.id)
           break
 
-        case 'openPage':
-          if (mod.downloadLink) await window.api.shell.openExternal(mod.downloadLink)
+        case 'openPage': {
+          const url = pageLink(mod)
+          if (url) await window.api.shell.openExternal(url)
           break
+        }
       }
     } catch (err) {
       setError(`${mod.name}: ${describe(err)}`)

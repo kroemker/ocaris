@@ -167,6 +167,23 @@ export interface ModAction {
   disabledReason?: string
 }
 
+/** Where "Open page" goes. The mod's own page when a source gave one, the
+ *  download link otherwise - for a landing-page link those are the same
+ *  thing anyway. */
+export function pageLink(mod: ModSummary): string | null {
+  return mod.pageUrl ?? mod.downloadLink
+}
+
+/** Catalog ids are internal; these are what a row shows. */
+export const SOURCE_LABELS: Record<string, string> = {
+  hylianmodding: 'hylianmodding',
+  zeldafandom: 'wiki'
+}
+
+export function sourceLabel(source: string): string {
+  return SOURCE_LABELS[source] ?? source
+}
+
 export interface ActionContext {
   hasEmulator: boolean
   /** An install request that hasn't come back yet - the row's buttons are inert
@@ -200,20 +217,32 @@ export function actionsFor(mod: ModSummary, context: ActionContext): ModAction[]
 
     case 'error':
       return [
-        { id: 'retry', label: 'Retry', primary: true, disabled: busy || !mod.downloadLink },
-        ...(mod.downloadLink ? [{ id: 'openPage' as const, label: 'Open page ↗' }] : [])
+        {
+          id: 'retry',
+          label: 'Retry',
+          primary: true,
+          disabled: busy || !mod.installable
+        },
+        ...(pageLink(mod) ? [{ id: 'openPage' as const, label: 'Open page ↗' }] : [])
       ]
 
     case 'not_downloaded':
-      return [
-        {
-          id: 'download',
-          label: 'Download',
-          primary: true,
-          disabled: busy || !mod.downloadLink,
-          disabledReason: mod.downloadLink ? undefined : 'This mod has no download link'
-        }
-      ]
+      // A link the installer can't act on (a MediaFire or Drive landing page,
+      // most of the wiki's catalog) gets no Download button: it could only
+      // ever fail, so the row sends the user to the page instead.
+      if (!mod.installable) {
+        return [
+          {
+            id: 'openPage',
+            label: 'Open page ↗',
+            primary: true,
+            disabled: !pageLink(mod),
+            disabledReason: pageLink(mod) ? undefined : 'This mod has no page to open'
+          }
+        ]
+      }
+
+      return [{ id: 'download', label: 'Download', primary: true, disabled: busy }]
   }
 }
 
