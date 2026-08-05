@@ -228,7 +228,7 @@
   border-color: color-mix(in srgb, var(--err) 45%, var(--line));
 }
 
-.chip.empty {
+.chip.zero {
   opacity: 0.4;
 }
 

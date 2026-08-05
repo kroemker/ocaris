@@ -23,7 +23,7 @@ function FilterChips({
         if (filter.id === active) classes.push('on')
         // "Needs attention" only reads as a warning when there's something in it.
         if (filter.alert && count > 0) classes.push('alert')
-        if (count === 0 && filter.id !== 'all') classes.push('empty')
+        if (count === 0 && filter.id !== 'all') classes.push('zero')
 
         return (
           <button
