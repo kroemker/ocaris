@@ -60,7 +60,10 @@ const api = {
   },
   storage: {
     usage: (): Promise<StorageUsage> => ipcRenderer.invoke(IpcChannel.StorageUsage),
-    openFolder: (): Promise<void> => ipcRenderer.invoke(IpcChannel.StorageOpenFolder)
+    openFolder: (): Promise<void> => ipcRenderer.invoke(IpcChannel.StorageOpenFolder),
+    selectFolder: (): Promise<string | null> => ipcRenderer.invoke(IpcChannel.StorageSelectFolder),
+    setLocation: (path: string | null): Promise<StorageUsage> =>
+      ipcRenderer.invoke(IpcChannel.StorageSetLocation, path)
   },
   shell: {
     openExternal: (url: string): Promise<void> =>

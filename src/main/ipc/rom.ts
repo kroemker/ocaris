@@ -7,7 +7,9 @@ import {
 } from '@shared/ipc'
 import { getAppConfig, saveRomConfig } from '../db/appConfig'
 import { getDatabase } from '../db'
+import { copyBaseRom } from '../rom/baseRom'
 import { verifyRomFile } from '../rom/verify'
+import { getBaseRomDir } from '../storage/paths'
 
 export function registerRomIpcHandlers(): void {
   ipcMain.handle(IpcChannel.RomSelectFile, async (): Promise<string | null> => {
@@ -30,15 +32,22 @@ export function registerRomIpcHandlers(): void {
     }
   )
 
-  ipcMain.handle(IpcChannel.RomConfirm, (_event, input: RomConfirmRequest): RomConfig => {
-    const db = getDatabase()
-    return saveRomConfig(db, {
-      romPath: input.romPath,
-      romVariant: input.variant,
-      romVerified: input.verified,
-      romUserConfirmed: true
-    })
-  })
+  ipcMain.handle(
+    IpcChannel.RomConfirm,
+    async (_event, input: RomConfirmRequest): Promise<RomConfig> => {
+      const db = getDatabase()
+      // Every patch is applied to this managed copy, not the path the user
+      // picked - so renaming or moving the original afterwards can't break
+      // an install that's already configured.
+      const managedPath = await copyBaseRom(input.romPath, getBaseRomDir(db))
+      return saveRomConfig(db, {
+        romPath: managedPath,
+        romVariant: input.variant,
+        romVerified: input.verified,
+        romUserConfirmed: true
+      })
+    }
+  )
 
   ipcMain.handle(IpcChannel.RomGetConfig, (): RomConfig => {
     const db = getDatabase()

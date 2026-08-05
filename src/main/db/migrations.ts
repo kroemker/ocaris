@@ -106,6 +106,15 @@ const migrations: Migration[] = [
   },
   {
     id: 7,
+    name: 'app_config_storage_root',
+    up: (db) => {
+      // NULL means "use the default userData location" - there is no
+      // separate boolean, the column doubling as its own default marker.
+      db.exec(`ALTER TABLE app_config ADD COLUMN storage_root TEXT;`)
+    }
+  },
+  {
+    id: 8,
     name: 'emulators_known_id',
     up: (db) => {
       // kind/known_id record which registry entry (if any) an emulator was

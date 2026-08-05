@@ -35,6 +35,8 @@ export const IpcChannel = {
   ModReveal: 'mod:reveal',
   StorageUsage: 'storage:usage',
   StorageOpenFolder: 'storage:open-folder',
+  StorageSelectFolder: 'storage:select-folder',
+  StorageSetLocation: 'storage:set-location',
   ShellOpenExternal: 'shell:open-external'
 } as const
 
@@ -50,6 +52,9 @@ export interface CatalogStats {
 }
 
 export interface StorageUsage {
+  storageRoot: string
+  /** True when storageRoot is the app's default userData location. */
+  isDefaultLocation: boolean
   patchedRomDir: string
   fileCount: number
   totalBytes: number
