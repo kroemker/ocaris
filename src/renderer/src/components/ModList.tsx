@@ -1,5 +1,10 @@
 import ModRow from './ModRow'
-import { groupModsByState, STATUS_LABELS, type ActionContext, type ModActionId } from '../lib/library'
+import {
+  groupModsByState,
+  STATUS_LABELS,
+  type ActionContext,
+  type ModActionId
+} from '../lib/library'
 import type { ModSummary } from '@shared/ipc'
 
 interface ModListProps {
@@ -7,7 +12,7 @@ interface ModListProps {
   groupByState: boolean
   context: ActionContext
   busyIds: ReadonlySet<string>
-  onAction: (action: ModActionId, mod: ModSummary) => void
+  onAction: (action: ModActionId, mod: ModSummary, emulatorId?: number) => void
 }
 
 function ModList({

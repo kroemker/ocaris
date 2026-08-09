@@ -6,7 +6,7 @@ import type { ModSummary } from '@shared/ipc'
 interface ModRowProps {
   mod: ModSummary
   context: ActionContext
-  onAction: (action: ModActionId, mod: ModSummary) => void
+  onAction: (action: ModActionId, mod: ModSummary, emulatorId?: number) => void
 }
 
 function ModRow({ mod, context, onAction }: ModRowProps): React.JSX.Element {

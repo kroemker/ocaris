@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import PlayButton from './PlayButton'
 import {
   actionsFor,
   formatProgress,
@@ -11,7 +12,7 @@ import type { ModSummary } from '@shared/ipc'
 interface ModRowActionsProps {
   mod: ModSummary
   context: ActionContext
-  onAction: (action: ModActionId, mod: ModSummary) => void
+  onAction: (action: ModActionId, mod: ModSummary, emulatorId?: number) => void
 }
 
 /**
@@ -69,17 +70,28 @@ function ModRowActions({ mod, context, onAction }: ModRowActionsProps): React.JS
           )
         })()}
 
-      {primary.map((action) => (
-        <button
-          key={action.id}
-          className="btn primary"
-          disabled={action.disabled}
-          title={action.disabled ? action.disabledReason : undefined}
-          onClick={() => onAction(action.id, mod)}
-        >
-          {action.label}
-        </button>
-      ))}
+      {primary.map((action) =>
+        action.id === 'play' ? (
+          <PlayButton
+            key={action.id}
+            label={action.label}
+            disabled={action.disabled}
+            disabledReason={action.disabledReason}
+            emulators={context.emulators}
+            onPlay={(emulatorId) => onAction('play', mod, emulatorId)}
+          />
+        ) : (
+          <button
+            key={action.id}
+            className="btn primary"
+            disabled={action.disabled}
+            title={action.disabled ? action.disabledReason : undefined}
+            onClick={() => onAction(action.id, mod)}
+          >
+            {action.label}
+          </button>
+        )
+      )}
 
       {secondary.length > 0 && (
         <div className="row-actions">

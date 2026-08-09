@@ -1,4 +1,4 @@
-import type { ModStatusSummary, ModSummary } from '@shared/ipc'
+import type { Emulator, ModStatusSummary, ModSummary } from '@shared/ipc'
 
 /**
  * Filtering, sorting and the state-to-actions mapping for the library view,
@@ -185,10 +185,39 @@ export function sourceLabel(source: string): string {
 }
 
 export interface ActionContext {
-  hasEmulator: boolean
+  emulators: readonly Emulator[]
   /** An install request that hasn't come back yet - the row's buttons are inert
    *  until the status catches up. */
   busy?: boolean
+}
+
+/** What a bare Play click launches: the emulator flagged default, or the only
+ *  one there is. */
+export function defaultEmulator(emulators: readonly Emulator[]): Emulator | undefined {
+  return emulators.find((emulator) => emulator.isDefault) ?? emulators[0]
+}
+
+export interface PlayMenuItem {
+  emulator: Emulator
+  label: string
+  isDefault: boolean
+}
+
+/**
+ * Entries for the Play button's menu. The default comes first so the top of
+ * the list matches what clicking the button itself does; the rest keep the
+ * order they were configured in.
+ */
+export function playMenuItems(emulators: readonly Emulator[]): PlayMenuItem[] {
+  const fallback = defaultEmulator(emulators)
+
+  return [...emulators]
+    .sort((a, b) => Number(b.id === fallback?.id) - Number(a.id === fallback?.id))
+    .map((emulator) => ({
+      emulator,
+      label: `Play with ${emulator.name}`,
+      isDefault: emulator.id === fallback?.id
+    }))
 }
 
 /**
@@ -197,6 +226,7 @@ export interface ActionContext {
  */
 export function actionsFor(mod: ModSummary, context: ActionContext): ModAction[] {
   const busy = context.busy === true
+  const hasEmulator = context.emulators.length > 0
 
   switch (mod.status.state) {
     case 'ready':
@@ -205,8 +235,8 @@ export function actionsFor(mod: ModSummary, context: ActionContext): ModAction[]
           id: 'play',
           label: '▶ Play',
           primary: true,
-          disabled: busy || !context.hasEmulator,
-          disabledReason: context.hasEmulator ? undefined : 'Configure an emulator first'
+          disabled: busy || !hasEmulator,
+          disabledReason: hasEmulator ? undefined : 'Configure an emulator first'
         },
         { id: 'reveal', label: 'Folder', disabled: busy },
         { id: 'remove', label: 'Remove', disabled: busy }

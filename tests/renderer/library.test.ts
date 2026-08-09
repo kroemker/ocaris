@@ -2,12 +2,30 @@ import { describe, expect, it } from 'vitest'
 import {
   actionsFor,
   countsByFilter,
+  defaultEmulator,
   formatProgress,
   groupModsByState,
+  playMenuItems,
   sortMods,
   visibleMods
 } from '../../src/renderer/src/lib/library'
-import type { ModStatusState, ModStatusSummary, ModSummary } from '../../src/shared/ipc'
+import type { Emulator, ModStatusState, ModStatusSummary, ModSummary } from '../../src/shared/ipc'
+
+function emulator(id: number, name: string, isDefault = false): Emulator {
+  return {
+    id,
+    name,
+    executablePath: `/usr/bin/${name.toLowerCase()}`,
+    argsTemplate: '{romPath}',
+    isDefault,
+    knownId: null,
+    kind: 'custom',
+    createdAt: 0,
+    updatedAt: 0
+  }
+}
+
+const EMULATORS: Emulator[] = [emulator(1, 'Ares'), emulator(2, 'Project64', true)]
 
 type ModOverrides = Partial<Omit<ModSummary, 'status'>> & {
   id: string
@@ -177,11 +195,11 @@ describe('actionsFor', () => {
   it('offers Play for a ready mod, disabled until an emulator exists', () => {
     const ready = withState('r', 'ready')
 
-    const withEmulator = actionsFor(ready, { hasEmulator: true })
+    const withEmulator = actionsFor(ready, { emulators: EMULATORS })
     expect(withEmulator.map((a) => a.id)).toEqual(['play', 'reveal', 'remove'])
     expect(withEmulator[0].disabled).toBe(false)
 
-    const withoutEmulator = actionsFor(ready, { hasEmulator: false })
+    const withoutEmulator = actionsFor(ready, { emulators: [] })
     expect(withoutEmulator[0].disabled).toBe(true)
     expect(withoutEmulator[0].disabledReason).toBeTruthy()
     // The mod stays visible and removable; only Play is blocked.
@@ -190,12 +208,12 @@ describe('actionsFor', () => {
 
   it('offers only Cancel while downloading', () => {
     expect(
-      actionsFor(withState('d', 'downloading'), { hasEmulator: true }).map((a) => a.id)
+      actionsFor(withState('d', 'downloading'), { emulators: EMULATORS }).map((a) => a.id)
     ).toEqual(['cancel'])
   })
 
   it('offers Retry and the mod page for an error', () => {
-    expect(actionsFor(withState('e', 'error'), { hasEmulator: true }).map((a) => a.id)).toEqual([
+    expect(actionsFor(withState('e', 'error'), { emulators: EMULATORS }).map((a) => a.id)).toEqual([
       'retry',
       'openPage'
     ])
@@ -203,7 +221,7 @@ describe('actionsFor', () => {
 
   it('offers nothing but a disabled Open page when there is no link at all', () => {
     const linkless = mod({ id: 'n', downloadLink: null, installable: false })
-    const [only] = actionsFor(linkless, { hasEmulator: true })
+    const [only] = actionsFor(linkless, { emulators: EMULATORS })
     expect(only.id).toBe('openPage')
     expect(only.disabled).toBe(true)
 
@@ -213,7 +231,7 @@ describe('actionsFor', () => {
       installable: false,
       status: { state: 'error' }
     })
-    expect(actionsFor(erroring, { hasEmulator: true }).map((a) => a.id)).toEqual(['retry'])
+    expect(actionsFor(erroring, { emulators: EMULATORS }).map((a) => a.id)).toEqual(['retry'])
   })
 
   /**
@@ -229,7 +247,7 @@ describe('actionsFor', () => {
       pageUrl: 'https://zelda-64-mods.fandom.com/wiki/Burger_Quest'
     })
 
-    const actions = actionsFor(manual, { hasEmulator: true })
+    const actions = actionsFor(manual, { emulators: EMULATORS })
     expect(actions.map((a) => a.id)).toEqual(['openPage'])
     expect(actions[0].primary).toBe(true)
     expect(actions[0].disabled).toBeFalsy()
@@ -243,13 +261,47 @@ describe('actionsFor', () => {
       status: { state: 'error' }
     })
 
-    const [retry] = actionsFor(manual, { hasEmulator: true })
+    const [retry] = actionsFor(manual, { emulators: EMULATORS })
     expect(retry.id).toBe('retry')
     expect(retry.disabled).toBe(true)
   })
 
+  it('names the button Play regardless of how many emulators exist', () => {
+    const [play] = actionsFor(withState('r', 'ready'), { emulators: [emulator(1, 'Ares')] })
+    expect(play.label).toBe('▶ Play')
+  })
+
   it('disables everything actionable while a request is in flight', () => {
-    const actions = actionsFor(withState('r', 'ready'), { hasEmulator: true, busy: true })
+    const actions = actionsFor(withState('r', 'ready'), { emulators: EMULATORS, busy: true })
     expect(actions.every((a) => a.disabled)).toBe(true)
+  })
+})
+
+describe('defaultEmulator', () => {
+  it('prefers the flagged default, falls back to the first, and copes with none', () => {
+    expect(defaultEmulator(EMULATORS)?.name).toBe('Project64')
+    expect(defaultEmulator([emulator(3, 'Mupen'), emulator(4, 'Ares')])?.name).toBe('Mupen')
+    expect(defaultEmulator([])).toBeUndefined()
+  })
+})
+
+describe('playMenuItems', () => {
+  it('labels every emulator and puts the default first', () => {
+    const items = playMenuItems(EMULATORS)
+    expect(items.map((i) => i.label)).toEqual(['Play with Project64', 'Play with Ares'])
+    expect(items.map((i) => i.isDefault)).toEqual([true, false])
+  })
+
+  it('keeps configured order among the rest', () => {
+    const items = playMenuItems([
+      emulator(1, 'Ares'),
+      emulator(2, 'Mupen'),
+      emulator(3, 'Project64', true)
+    ])
+    expect(items.map((i) => i.emulator.name)).toEqual(['Project64', 'Ares', 'Mupen'])
+  })
+
+  it('is empty when nothing is configured', () => {
+    expect(playMenuItems([])).toEqual([])
   })
 })

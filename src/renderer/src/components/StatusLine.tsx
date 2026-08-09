@@ -1,3 +1,4 @@
+import { defaultEmulator } from '../lib/library'
 import type { Emulator, RomConfig } from '@shared/ipc'
 
 interface StatusLineProps {
@@ -25,7 +26,7 @@ function StatusLine({
   emulators,
   refreshedAt
 }: StatusLineProps): React.JSX.Element {
-  const defaultEmulator = emulators.find((emulator) => emulator.isDefault) ?? emulators[0]
+  const active = defaultEmulator(emulators)
 
   return (
     <footer className="statusline">
@@ -45,7 +46,7 @@ function StatusLine({
       )}
 
       <span>·</span>
-      <span>{defaultEmulator ? defaultEmulator.name : 'no emulator'}</span>
+      <span>{active ? active.name : 'no emulator'}</span>
 
       <span className="spacer" />
       <span>{formatWhen(refreshedAt)}</span>

@@ -414,6 +414,88 @@
   flex: 1;
 }
 
+/* ------------------------------------------------------------------ *
+ * Play split button — click launches the default emulator, the caret
+ * opens the full list
+ * ------------------------------------------------------------------ */
+
+.split {
+  position: relative;
+}
+
+.split-main {
+  display: flex;
+  gap: 1px;
+}
+
+.side .split-main .btn {
+  width: auto;
+  flex: 1;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.side .split-main .split-toggle {
+  flex: none;
+  padding: 7px 9px;
+  font-size: 11px;
+  border-radius: 8px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.split .menu {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-width: 100%;
+  max-width: 260px;
+  padding: 4px;
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  box-shadow: 0 14px 34px rgb(0 0 0 / 35%);
+}
+
+/* Rows near the bottom of the scrolling list would have their menu clipped. */
+.split.up .menu {
+  top: auto;
+  bottom: calc(100% + 5px);
+}
+
+.menu-item {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 9px;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--fg);
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+}
+
+.menu-item:hover,
+.menu-item:focus-visible {
+  background: var(--bg3);
+  outline: none;
+}
+
+.menu-item .tag {
+  flex: none;
+  font-size: 10.5px;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .status {
   display: flex;
   gap: 6px;

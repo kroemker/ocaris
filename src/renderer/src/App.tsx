@@ -7,6 +7,7 @@ import StatusLine from './components/StatusLine'
 import SettingsDialog, { type SettingsPane } from './components/settings/SettingsDialog'
 import {
   countsByFilter,
+  defaultEmulator,
   pageLink,
   visibleMods,
   type LibraryFilter,
@@ -97,9 +98,13 @@ function App(): React.JSX.Element {
     }
   }
 
-  async function handleAction(action: ModActionId, mod: ModSummary): Promise<void> {
+  /** emulatorId comes from the Play menu; without one, Play uses the default. */
+  async function handleAction(
+    action: ModActionId,
+    mod: ModSummary,
+    emulatorId?: number
+  ): Promise<void> {
     setError(null)
-    const defaultEmulator = emulators.find((e) => e.isDefault) ?? emulators[0]
 
     try {
       switch (action) {
@@ -117,10 +122,15 @@ function App(): React.JSX.Element {
           await window.api.mod.cancel(mod.id)
           break
 
-        case 'play':
-          if (!defaultEmulator || !mod.status.patchedRomPath) return
-          await window.api.emulator.launch(defaultEmulator.id, mod.status.patchedRomPath)
+        case 'play': {
+          const target =
+            emulatorId === undefined
+              ? defaultEmulator(emulators)
+              : emulators.find((e) => e.id === emulatorId)
+          if (!target || !mod.status.patchedRomPath) return
+          await window.api.emulator.launch(target.id, mod.status.patchedRomPath)
           break
+        }
 
         case 'remove':
           await window.api.mod.remove(mod.id)
@@ -201,8 +211,8 @@ function App(): React.JSX.Element {
         mods={visible}
         groupByState={groupByState}
         busyIds={busyIds}
-        context={{ hasEmulator: emulators.length > 0 }}
-        onAction={(action, mod) => void handleAction(action, mod)}
+        context={{ emulators }}
+        onAction={(action, mod, emulatorId) => void handleAction(action, mod, emulatorId)}
       />
     )
   }
