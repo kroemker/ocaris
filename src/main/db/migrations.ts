@@ -125,6 +125,44 @@ const migrations: Migration[] = [
         ALTER TABLE emulators ADD COLUMN kind TEXT NOT NULL DEFAULT 'custom';
       `)
     }
+  },
+  {
+    id: 9,
+    name: 'app_config_ui_state',
+    up: (db) => {
+      // Both hold JSON rather than a column per setting: these are grab-bags of
+      // view state that grow, and a new preference shouldn't need a migration.
+      // NULL means "never saved", which reads back as the defaults.
+      //
+      // They are separate columns because they have separate owners - ui_state
+      // is written by the renderer over IPC, window_bounds by main on window
+      // events - and a single blob would make the two clobber each other.
+      db.exec(`
+        ALTER TABLE app_config ADD COLUMN ui_state_json TEXT;
+        ALTER TABLE app_config ADD COLUMN window_bounds_json TEXT;
+      `)
+    }
+  },
+  {
+    id: 10,
+    name: 'mod_prefs',
+    up: (db) => {
+      // Separate from mod_status rather than more columns on it: mod:remove
+      // resets a status row wholesale, and a favourite or a remembered
+      // emulator must survive removing the patched ROM.
+      //
+      // Rows are created on first write, so a catalog of 137 mods nobody has
+      // touched stores nothing; readers LEFT JOIN and fall back to defaults.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS mod_prefs (
+          mod_id TEXT PRIMARY KEY REFERENCES mods (id) ON DELETE CASCADE,
+          favorite INTEGER NOT NULL DEFAULT 0,
+          hidden INTEGER NOT NULL DEFAULT 0,
+          emulator_id INTEGER REFERENCES emulators (id) ON DELETE SET NULL,
+          updated_at INTEGER NOT NULL
+        );
+      `)
+    }
   }
 ]
 

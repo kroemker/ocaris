@@ -3,13 +3,22 @@ import {
   actionsFor,
   countsByFilter,
   defaultEmulator,
+  emulatorForMod,
   formatProgress,
   groupModsByState,
+  isNewMod,
+  NEW_MOD_WINDOW_MS,
   playMenuItems,
   sortMods,
   visibleMods
 } from '../../src/renderer/src/lib/library'
-import type { Emulator, ModStatusState, ModStatusSummary, ModSummary } from '../../src/shared/ipc'
+import type {
+  Emulator,
+  ModPrefs,
+  ModStatusState,
+  ModStatusSummary,
+  ModSummary
+} from '../../src/shared/ipc'
 
 function emulator(id: number, name: string, isDefault = false): Emulator {
   return {
@@ -27,12 +36,13 @@ function emulator(id: number, name: string, isDefault = false): Emulator {
 
 const EMULATORS: Emulator[] = [emulator(1, 'Ares'), emulator(2, 'Project64', true)]
 
-type ModOverrides = Partial<Omit<ModSummary, 'status'>> & {
+type ModOverrides = Partial<Omit<ModSummary, 'status' | 'prefs'>> & {
   id: string
   status?: Partial<ModStatusSummary>
+  prefs?: Partial<ModPrefs>
 }
 
-function mod({ status, ...overrides }: ModOverrides): ModSummary {
+function mod({ status, prefs, ...overrides }: ModOverrides): ModSummary {
   return {
     source: 'test',
     name: overrides.id,
@@ -44,6 +54,7 @@ function mod({ status, ...overrides }: ModOverrides): ModSummary {
     pageUrl: null,
     completionStatus: null,
     sources: [{ source: 'test', pageUrl: null }],
+    firstSeenAt: null,
     ...overrides,
     status: {
       state: 'not_downloaded',
@@ -52,6 +63,12 @@ function mod({ status, ...overrides }: ModOverrides): ModSummary {
       downloadTotalBytes: null,
       errorMessage: null,
       ...status
+    },
+    prefs: {
+      favorite: false,
+      hidden: false,
+      emulatorId: null,
+      ...prefs
     }
   }
 }
@@ -83,6 +100,35 @@ describe('visibleMods', () => {
     const result = visibleMods(CATALOG, { filter: 'error', query: '', sort: 'name' })
     expect(result.map((m) => m.id)).toEqual(['c'])
   })
+
+  it('keeps hidden mods out of every filter except their own', () => {
+    const catalog = [
+      mod({ id: 'shown', name: 'Shown' }),
+      mod({ id: 'put-away', name: 'Put away', prefs: { hidden: true } })
+    ]
+
+    expect(
+      visibleMods(catalog, { filter: 'all', query: '', sort: 'name' }).map((m) => m.id)
+    ).toEqual(['shown'])
+    expect(
+      visibleMods(catalog, { filter: 'available', query: '', sort: 'name' }).map((m) => m.id)
+    ).toEqual(['shown'])
+    expect(
+      visibleMods(catalog, { filter: 'hidden', query: '', sort: 'name' }).map((m) => m.id)
+    ).toEqual(['put-away'])
+  })
+
+  it('shows only favorites under the favorites filter, hidden ones excluded', () => {
+    const catalog = [
+      mod({ id: 'fav', prefs: { favorite: true } }),
+      mod({ id: 'fav-hidden', prefs: { favorite: true, hidden: true } }),
+      mod({ id: 'plain' })
+    ]
+
+    expect(
+      visibleMods(catalog, { filter: 'favorites', query: '', sort: 'name' }).map((m) => m.id)
+    ).toEqual(['fav'])
+  })
 })
 
 describe('sortMods', () => {
@@ -104,6 +150,25 @@ describe('sortMods', () => {
     const input = [...CATALOG]
     sortMods(input, 'status')
     expect(input.map((m) => m.id)).toEqual(['a', 'b', 'c', 'd'])
+  })
+
+  it('puts the newest first and rows with no first_seen_at last', () => {
+    const catalog = [
+      mod({ id: 'old', name: 'Old', firstSeenAt: 1_000 }),
+      mod({ id: 'unknown', name: 'Unknown' }),
+      mod({ id: 'new', name: 'New', firstSeenAt: 9_000 })
+    ]
+
+    expect(sortMods(catalog, 'recent').map((m) => m.id)).toEqual(['new', 'old', 'unknown'])
+  })
+})
+
+describe('isNewMod', () => {
+  it('counts a mod first seen inside the window, and nothing without a date', () => {
+    const now = 1_000_000_000_000
+    expect(isNewMod(mod({ id: 'a', firstSeenAt: now - 1000 }), now)).toBe(true)
+    expect(isNewMod(mod({ id: 'b', firstSeenAt: now - NEW_MOD_WINDOW_MS - 1 }), now)).toBe(false)
+    expect(isNewMod(mod({ id: 'c' }), now)).toBe(false)
   })
 })
 
@@ -136,20 +201,42 @@ describe('countsByFilter', () => {
   it('counts every state', () => {
     expect(countsByFilter(CATALOG, '')).toEqual({
       all: 4,
+      favorites: 0,
       ready: 1,
       downloading: 0,
       available: 2,
-      error: 1
+      error: 1,
+      hidden: 0
     })
   })
 
   it('composes with the search query so chips narrow along with the list', () => {
     expect(countsByFilter(CATALOG, 'nokaubure')).toEqual({
       all: 2,
+      favorites: 0,
       ready: 1,
       downloading: 0,
       available: 1,
-      error: 0
+      error: 0,
+      hidden: 0
+    })
+  })
+
+  it('leaves hidden mods out of every count but their own', () => {
+    const catalog = [
+      mod({ id: 'shown', status: { state: 'ready' } }),
+      mod({ id: 'put-away', status: { state: 'ready' }, prefs: { hidden: true } }),
+      mod({ id: 'fav', prefs: { favorite: true } })
+    ]
+
+    expect(countsByFilter(catalog, '')).toEqual({
+      all: 2,
+      favorites: 1,
+      ready: 1,
+      downloading: 0,
+      available: 1,
+      error: 0,
+      hidden: 1
     })
   })
 })
@@ -285,11 +372,37 @@ describe('defaultEmulator', () => {
   })
 })
 
+describe('emulatorForMod', () => {
+  it('uses the emulator the mod remembers, falling back to the default when it is gone', () => {
+    expect(emulatorForMod(mod({ id: 'a', prefs: { emulatorId: 1 } }), EMULATORS)?.name).toBe('Ares')
+    // An emulator that was deleted since - the row still plays, with the default.
+    expect(emulatorForMod(mod({ id: 'b', prefs: { emulatorId: 99 } }), EMULATORS)?.name).toBe(
+      'Project64'
+    )
+    expect(emulatorForMod(mod({ id: 'c' }), EMULATORS)?.name).toBe('Project64')
+    expect(emulatorForMod(mod({ id: 'd' }), [])).toBeUndefined()
+  })
+})
+
 describe('playMenuItems', () => {
   it('labels every emulator and puts the default first', () => {
     const items = playMenuItems(EMULATORS)
     expect(items.map((i) => i.label)).toEqual(['Play with Project64', 'Play with Ares'])
-    expect(items.map((i) => i.isDefault)).toEqual([true, false])
+    expect(items.map((i) => i.isPreferred)).toEqual([true, false])
+    expect(items.map((i) => i.tag)).toEqual(['default', null])
+  })
+
+  it("leads with the mod's own emulator, tagged apart from the app-wide default", () => {
+    const items = playMenuItems(EMULATORS, 1)
+    expect(items.map((i) => i.emulator.name)).toEqual(['Ares', 'Project64'])
+    expect(items.map((i) => i.tag)).toEqual(['this mod', 'default'])
+    expect(items.map((i) => i.isPreferred)).toEqual([true, false])
+  })
+
+  it('ignores a remembered emulator that no longer exists', () => {
+    const items = playMenuItems(EMULATORS, 99)
+    expect(items.map((i) => i.emulator.name)).toEqual(['Project64', 'Ares'])
+    expect(items[0].isPreferred).toBe(true)
   })
 
   it('keeps configured order among the rest', () => {

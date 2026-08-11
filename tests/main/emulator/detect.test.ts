@@ -23,7 +23,12 @@ function addToPath(executableName: string): void {
   process.env['PATH'] = `${dir}${delimiter}${originalPath ?? ''}`
 }
 
-describe('detectEmulators (linux)', () => {
+// detectEmulators reads process.platform to decide which executable names to
+// look for, so these fixtures ('retroarch', an executable bit and no .exe)
+// only describe a POSIX host. On Windows the positive case can't be set up at
+// all and the negative ones would pass without proving anything, so the whole
+// block is a no-op there rather than a false green.
+describe.skipIf(process.platform === 'win32')('detectEmulators (linux)', () => {
   it('finds a known emulator on PATH', async () => {
     addToPath('retroarch')
 

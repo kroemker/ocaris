@@ -1,8 +1,9 @@
 import { ipcMain, shell } from 'electron'
 import { rm } from 'node:fs/promises'
-import { IpcChannel } from '@shared/ipc'
+import { IpcChannel, type ModPrefs, type ModPrefsPatch } from '@shared/ipc'
 import { getDatabase } from '../db'
 import { getModWithStatus, setModStatus } from '../db/mods'
+import { setModPrefs } from '../db/modPrefs'
 
 /**
  * In-flight installs, keyed by mod id, so mod:cancel can abort one download
@@ -64,6 +65,17 @@ export function registerModIpcHandlers(): void {
       errorMessage: null
     })
   })
+
+  ipcMain.handle(
+    IpcChannel.ModSetPrefs,
+    (_event, modId: string, patch: ModPrefsPatch): ModPrefs => {
+      const db = getDatabase()
+      // Checked rather than left to the foreign key: a write for a mod that
+      // isn't in the catalog is a bug in the renderer, not a row to create.
+      if (!getModWithStatus(db, modId)) throw new Error(`Mod ${modId} not found`)
+      return setModPrefs(db, modId, patch)
+    }
+  )
 
   ipcMain.handle(IpcChannel.ModCancel, (_event, modId: string): boolean => {
     const controller = inFlight.get(modId)

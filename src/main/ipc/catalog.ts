@@ -4,6 +4,7 @@ import {
   IpcChannel,
   type CatalogRefreshResult,
   type CatalogStats,
+  type ModProgressEvent,
   type ModSummary
 } from '@shared/ipc'
 import { getDatabase } from '../db'
@@ -24,6 +25,7 @@ import { refreshCatalog } from '../catalog/refresh'
 import type { CatalogMetadata } from '../catalog/types'
 import { classifyDownloadLink } from '../mods/resolvePatch'
 import { installMod } from '../mods/install'
+import { throttleProgress } from '../mods/throttleProgress'
 
 function toModSummary(mod: ModWithStatus): ModSummary {
   const metadata = (mod.metadata ?? {}) as Partial<CatalogMetadata>
@@ -47,6 +49,8 @@ function toModSummary(mod: ModWithStatus): ModSummary {
     sources: metadata.sources?.map(({ source, pageUrl }) => ({ source, pageUrl })) ?? [
       { source: mod.source, pageUrl: metadata.pageUrl ?? null }
     ],
+    firstSeenAt: mod.firstSeenAt,
+    prefs: mod.prefs,
     status: {
       state: mod.status.state,
       patchedRomPath: mod.status.patchedRomPath,
@@ -93,7 +97,7 @@ export function registerCatalogIpcHandlers(): void {
     return getCatalogStats(getDatabase())
   })
 
-  ipcMain.handle(IpcChannel.ModInstall, async (_event, modId: string): Promise<ModSummary> => {
+  ipcMain.handle(IpcChannel.ModInstall, async (event, modId: string): Promise<ModSummary> => {
     const db = getDatabase()
     const mod = getModWithStatus(db, modId)
     if (!mod) {
@@ -113,6 +117,16 @@ export function registerCatalogIpcHandlers(): void {
     // Registered so mod:cancel can abort this one download; installMod turns
     // the abort into a 'not_downloaded' status rather than an error.
     const controller = beginInstall(modId)
+    const emitProgress = throttleProgress((progress) => {
+      // The window can be gone before a long download finishes.
+      if (event.sender.isDestroyed()) return
+      event.sender.send(IpcChannel.ModProgress, {
+        modId,
+        downloadProgressBytes: progress.bytesDownloaded,
+        downloadTotalBytes: progress.totalBytes
+      } satisfies ModProgressEvent)
+    })
+
     try {
       await installMod({
         db,
@@ -121,6 +135,7 @@ export function registerCatalogIpcHandlers(): void {
         romPath: romConfig.romPath,
         patchCacheDir: getPatchCacheDir(db),
         patchedRomDir: getPatchedRomDir(db),
+        onProgress: emitProgress,
         signal: controller.signal
       })
     } finally {

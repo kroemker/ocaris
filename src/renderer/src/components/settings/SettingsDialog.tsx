@@ -5,9 +5,12 @@ import EmulatorsPane from './panes/EmulatorsPane'
 import CatalogPane from './panes/CatalogPane'
 import StoragePane from './panes/StoragePane'
 import AboutPane from './panes/AboutPane'
-import type { Emulator, RomConfig } from '@shared/ipc'
+import type { Emulator, RomConfig, SettingsPane } from '@shared/ipc'
 
-export type SettingsPane = 'appearance' | 'rom' | 'emulators' | 'catalog' | 'storage' | 'about'
+// Defined in the shared IPC contract because main validates it before storing
+// the last-opened pane, but re-exported here, where it reads as this
+// component's own type.
+export type { SettingsPane }
 
 const PANES: ReadonlyArray<{ id: SettingsPane; label: string }> = [
   { id: 'appearance', label: 'Appearance' },
@@ -22,6 +25,9 @@ interface SettingsDialogProps {
   open: boolean
   /** Pane to show when the dialog is opened. */
   initialPane?: SettingsPane
+  /** Fires only when the user picks a section, so that opening the dialog on a
+   *  specific pane programmatically doesn't overwrite their last choice. */
+  onPaneChange?: (pane: SettingsPane) => void
   onClose: () => void
   onRomConfigChange?: (config: RomConfig) => void
   onEmulatorsChange?: (emulators: Emulator[]) => void
@@ -31,6 +37,7 @@ interface SettingsDialogProps {
 function SettingsDialog({
   open,
   initialPane = 'appearance',
+  onPaneChange,
   onClose,
   onRomConfigChange,
   onEmulatorsChange,
@@ -78,7 +85,10 @@ function SettingsDialog({
                 key={entry.id}
                 className={entry.id === pane ? 'on' : undefined}
                 aria-current={entry.id === pane}
-                onClick={() => setPane(entry.id)}
+                onClick={() => {
+                  setPane(entry.id)
+                  onPaneChange?.(entry.id)
+                }}
               >
                 {entry.label}
               </button>

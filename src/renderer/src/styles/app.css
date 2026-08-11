@@ -1032,3 +1032,176 @@ code {
   font-size: 11.5px;
   color: var(--dim);
 }
+
+/* ------------------------------------------------------------------ *
+ * Row marks — favourite and hide, offered in every state
+ * ------------------------------------------------------------------ */
+
+.marks {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Quiet until the row is hovered or one of them is focused, so two more
+   buttons per row don't compete with the action rail. */
+.marks .btn {
+  opacity: 0.35;
+  transition: opacity 0.12s ease;
+}
+
+.row:hover .marks .btn,
+.marks .btn:focus-visible,
+.marks .btn[aria-pressed='true'] {
+  opacity: 1;
+}
+
+.btn.on,
+.marks .btn[aria-pressed='true'] {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+}
+
+/* A hidden mod is only ever shown by its own filter; it reads as put away. */
+.row.is-hidden-mod {
+  opacity: 0.6;
+}
+
+.thumb-button {
+  padding: 0;
+  cursor: pointer;
+  background: none;
+  border: 0;
+}
+
+/* A button that reads as text: the row title and inline links. */
+.linklike {
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: 0;
+}
+
+.linklike:hover {
+  color: var(--accent);
+}
+
+.row .title {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+
+.tag.new {
+  flex: none;
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--accent-fg);
+  background: var(--accent);
+  border-radius: 999px;
+}
+
+/* ------------------------------------------------------------------ *
+ * Mod details dialog
+ * ------------------------------------------------------------------ */
+
+.details {
+  width: min(620px, 100% - 52px);
+  max-height: min(620px, 100% - 52px);
+  padding: 0;
+  overflow: hidden;
+  color: var(--fg);
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 30px 90px rgb(0 0 0 / 45%);
+}
+
+.details::backdrop {
+  background: color-mix(in srgb, var(--page) 74%, transparent);
+  backdrop-filter: blur(3px);
+}
+
+.details-inner {
+  display: flex;
+  flex-direction: column;
+  max-height: min(620px, 100vh - 52px);
+}
+
+.details-top {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.details-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12.5px;
+}
+
+.details-facts .status {
+  justify-content: flex-start;
+}
+
+.details-facts .dim {
+  color: var(--dim);
+}
+
+.details-error {
+  margin: 0 0 12px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--err);
+}
+
+.details-desc {
+  margin: 0 0 16px;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.details-list {
+  display: grid;
+  grid-template-columns: 108px 1fr;
+  gap: 8px 12px;
+  margin: 0;
+  font-size: 12.5px;
+}
+
+.details-list dt {
+  color: var(--dim);
+}
+
+.details-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.details-list dd.path {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--dim);
+}
+
+.details-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.details-sources .linklike {
+  margin-left: 5px;
+  color: var(--accent);
+}

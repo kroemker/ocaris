@@ -5,20 +5,16 @@ import ModList from './components/ModList'
 import EmptyState from './components/EmptyState'
 import StatusLine from './components/StatusLine'
 import SettingsDialog, { type SettingsPane } from './components/settings/SettingsDialog'
+import ModDetails from './components/ModDetails'
 import {
   countsByFilter,
-  defaultEmulator,
+  emulatorForMod,
   pageLink,
   visibleMods,
-  type LibraryFilter,
-  type LibrarySort,
   type ModActionId
 } from './lib/library'
+import { useUiState } from './lib/useUiState'
 import type { Emulator, ModSummary, RomConfig } from '@shared/ipc'
-
-/** How often the list re-reads while a download is running. installMod writes
- *  progress to mod_status on every chunk, so polling is enough. */
-const PROGRESS_POLL_MS = 750
 
 function App(): React.JSX.Element {
   const [mods, setMods] = useState<ModSummary[]>([])
@@ -26,10 +22,8 @@ function App(): React.JSX.Element {
   const [emulators, setEmulators] = useState<Emulator[]>([])
   const [refreshedAt, setRefreshedAt] = useState<number | null>(null)
 
-  const [filter, setFilter] = useState<LibraryFilter>('all')
-  const [sort, setSort] = useState<LibrarySort>('name')
-  const [query, setQuery] = useState('')
-  const [groupByState, setGroupByState] = useState(false)
+  const ui = useUiState()
+  const { filter, sort, query, groupByState } = ui.state.library
 
   const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(new Set())
   const [refreshing, setRefreshing] = useState(false)
@@ -38,6 +32,9 @@ function App(): React.JSX.Element {
     open: false,
     pane: 'appearance'
   })
+  // The dialog follows the mod by id rather than holding a copy, so a row that
+  // finishes downloading updates underneath it.
+  const [detailsId, setDetailsId] = useState<string | null>(null)
 
   const loadMods = useCallback((): Promise<void> => {
     return window.api.catalog.list().then(setMods)
@@ -64,12 +61,35 @@ function App(): React.JSX.Element {
     })
   }, [loadMods, loadStats])
 
-  const anyDownloading = mods.some((mod) => mod.status.state === 'downloading')
+  // Ids with an install request in flight. busyIds says the same thing, but a
+  // long-lived event listener can't read state - and a progress event that
+  // arrives just after a cancel must not put the row back into 'downloading'.
+  const installing = useRef<ReadonlySet<string>>(new Set())
+
+  // Progress is pushed by main for the mod being installed, so the list neither
+  // polls nor re-reads the whole catalog to move a progress bar.
   useEffect(() => {
-    if (!anyDownloading) return
-    const interval = setInterval(() => void loadMods(), PROGRESS_POLL_MS)
-    return () => clearInterval(interval)
-  }, [anyDownloading, loadMods])
+    return window.api.mod.onProgress((progress) => {
+      if (!installing.current.has(progress.modId)) return
+      setMods((previous) =>
+        previous.map((mod) =>
+          mod.id === progress.modId
+            ? {
+                ...mod,
+                status: {
+                  ...mod.status,
+                  // The first event is also how a row learns it started: the
+                  // status it was rendered with still says 'not_downloaded'.
+                  state: 'downloading',
+                  downloadProgressBytes: progress.downloadProgressBytes,
+                  downloadTotalBytes: progress.downloadTotalBytes
+                }
+              }
+            : mod
+        )
+      )
+    })
+  }, [])
 
   const romConfigured = Boolean(romConfig?.romPath)
   const view = useMemo(() => ({ filter, query, sort }), [filter, query, sort])
@@ -77,12 +97,11 @@ function App(): React.JSX.Element {
   const counts = useMemo(() => countsByFilter(mods, query), [mods, query])
 
   function markBusy(modId: string, busy: boolean): void {
-    setBusyIds((prev) => {
-      const next = new Set(prev)
-      if (busy) next.add(modId)
-      else next.delete(modId)
-      return next
-    })
+    const next = new Set(installing.current)
+    if (busy) next.add(modId)
+    else next.delete(modId)
+    installing.current = next
+    setBusyIds(next)
   }
 
   async function handleRefresh(): Promise<void> {
@@ -98,13 +117,20 @@ function App(): React.JSX.Element {
     }
   }
 
-  /** emulatorId comes from the Play menu; without one, Play uses the default. */
+  /** emulatorId comes from the Play menu; without one, Play uses whichever
+   *  emulator this mod resolves to. */
   async function handleAction(
     action: ModActionId,
     mod: ModSummary,
     emulatorId?: number
   ): Promise<void> {
     setError(null)
+
+    // Opening the dialog is renderer-only: no IPC, and nothing to reload.
+    if (action === 'details') {
+      setDetailsId(mod.id)
+      return
+    }
 
     try {
       switch (action) {
@@ -125,12 +151,25 @@ function App(): React.JSX.Element {
         case 'play': {
           const target =
             emulatorId === undefined
-              ? defaultEmulator(emulators)
+              ? emulatorForMod(mod, emulators)
               : emulators.find((e) => e.id === emulatorId)
           if (!target || !mod.status.patchedRomPath) return
           await window.api.emulator.launch(target.id, mod.status.patchedRomPath)
+          // Picking from the menu is also how a mod's emulator gets set: the
+          // next bare Play click uses the same one.
+          if (emulatorId !== undefined && emulatorId !== mod.prefs.emulatorId) {
+            await window.api.mod.setPrefs(mod.id, { emulatorId })
+          }
           break
         }
+
+        case 'toggleFavorite':
+          await window.api.mod.setPrefs(mod.id, { favorite: !mod.prefs.favorite })
+          break
+
+        case 'toggleHidden':
+          await window.api.mod.setPrefs(mod.id, { hidden: !mod.prefs.hidden })
+          break
 
         case 'remove':
           await window.api.mod.remove(mod.id)
@@ -153,8 +192,11 @@ function App(): React.JSX.Element {
     }
   }
 
-  function openSettings(pane: SettingsPane): void {
-    setSettings({ open: true, pane })
+  /** Without a pane, the dialog reopens where the user left it last run. An
+   *  explicit pane is a prompt about something specific and doesn't become the
+   *  remembered one - only picking a section in the dialog's nav does. */
+  function openSettings(pane?: SettingsPane): void {
+    setSettings({ open: true, pane: pane ?? ui.state.settingsPane })
   }
 
   /**
@@ -163,6 +205,11 @@ function App(): React.JSX.Element {
    * disabled (see actionsFor).
    */
   function body(): React.JSX.Element {
+    // The stored filter/sort/search arrive a tick after the first paint.
+    // Rendering the list against the defaults first would show the wrong rows
+    // and then snap, so it waits - the catalog is still loading anyway.
+    if (!ui.loaded) return <div className="list" aria-busy="true" />
+
     if (romConfig && !romConfig.romPath) {
       return (
         <EmptyState
@@ -197,10 +244,7 @@ function App(): React.JSX.Element {
           }
           action={{
             label: 'Clear filters',
-            onClick: () => {
-              setFilter('all')
-              setQuery('')
-            }
+            onClick: () => ui.setLibrary({ filter: 'all', query: '' })
           }}
         />
       )
@@ -221,19 +265,19 @@ function App(): React.JSX.Element {
     <div className="app">
       <TopBar>
         <div className="spacer" />
-        {romConfigured && mods.length > 0 && (
+        {ui.loaded && romConfigured && mods.length > 0 && (
           <input
             className="search"
             value={query}
             placeholder="Search mods or authors…"
             aria-label="Search mods"
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => ui.setLibrary({ query: e.target.value })}
           />
         )}
         <button className="btn" onClick={() => void handleRefresh()} disabled={refreshing}>
           {refreshing ? 'Refreshing…' : 'Refresh catalog'}
         </button>
-        <button className="btn icon" onClick={() => openSettings('appearance')} title="Settings">
+        <button className="btn icon" onClick={() => openSettings()} title="Settings">
           ⚙
         </button>
       </TopBar>
@@ -249,15 +293,15 @@ function App(): React.JSX.Element {
       )}
 
       {/* Both are noise while the ROM empty state owns the view. */}
-      {romConfigured && mods.length > 0 && (
+      {ui.loaded && romConfigured && mods.length > 0 && (
         <FilterChips
           active={filter}
           counts={counts}
           sort={sort}
           groupByState={groupByState}
-          onFilterChange={setFilter}
-          onSortChange={setSort}
-          onGroupByStateChange={setGroupByState}
+          onFilterChange={(next) => ui.setLibrary({ filter: next })}
+          onSortChange={(next) => ui.setLibrary({ sort: next })}
+          onGroupByStateChange={(next) => ui.setLibrary({ groupByState: next })}
         />
       )}
 
@@ -271,9 +315,20 @@ function App(): React.JSX.Element {
         refreshedAt={refreshedAt}
       />
 
+      <ModDetails
+        mod={mods.find((mod) => mod.id === detailsId) ?? null}
+        context={{ emulators, busy: detailsId !== null && busyIds.has(detailsId) }}
+        onClose={() => setDetailsId(null)}
+        onAction={(action, mod, emulatorId) => void handleAction(action, mod, emulatorId)}
+        onEmulatorChange={(mod, id) => {
+          void window.api.mod.setPrefs(mod.id, { emulatorId: id }).then(() => loadMods())
+        }}
+      />
+
       <SettingsDialog
         open={settings.open}
         initialPane={settings.pane}
+        onPaneChange={ui.setSettingsPane}
         onClose={() => setSettings((s) => ({ ...s, open: false }))}
         onRomConfigChange={setRomConfig}
         onEmulatorsChange={setEmulators}

@@ -78,6 +78,7 @@ function ModRowActions({ mod, context, onAction }: ModRowActionsProps): React.JS
             disabled={action.disabled}
             disabledReason={action.disabledReason}
             emulators={context.emulators}
+            preferredEmulatorId={mod.prefs.emulatorId}
             onPlay={(emulatorId) => onAction('play', mod, emulatorId)}
           />
         ) : (

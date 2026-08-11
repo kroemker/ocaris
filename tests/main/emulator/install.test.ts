@@ -10,6 +10,17 @@ let server: Server
 let dir: string
 let baseUrl: string
 
+/**
+ * installKnownEmulator chmods what it extracts, which Windows has no notion
+ * of. Only that one assertion is platform-specific - the download, extraction
+ * and cleanup around it are worth running everywhere - so it's checked
+ * conditionally rather than skipping the whole case.
+ */
+function expectExecutable(path: string): void {
+  if (process.platform === 'win32') return
+  expect(statSync(path).mode & 0o111).not.toBe(0)
+}
+
 function startServer(handler: RequestListener): Promise<string> {
   return new Promise((resolve) => {
     server = createServer(handler)
@@ -79,9 +90,7 @@ describe('installKnownEmulator', () => {
     expect(result.executablePath).toBe(join(dir, 'ares', 'ares'))
     expect(existsSync(result.executablePath as string)).toBe(true)
 
-    // chmod +x must have been applied on a POSIX platform.
-    const mode = statSync(result.executablePath as string).mode
-    expect(mode & 0o111).not.toBe(0)
+    expectExecutable(result.executablePath as string)
 
     // the downloaded zip itself is cleaned up, only extracted contents remain
     expect(readdirSync(join(dir, 'ares')).sort()).toEqual(['README.txt', 'ares'])
@@ -102,8 +111,7 @@ describe('installKnownEmulator', () => {
 
     expect(result.ok).toBe(true)
     expect(result.executablePath).toBe(join(dir, 'simple64', 'simple64-gui-linux.AppImage'))
-    const mode = statSync(result.executablePath as string).mode
-    expect(mode & 0o111).not.toBe(0)
+    expectExecutable(result.executablePath as string)
   })
 
   it('resolves to an error when no release asset matches the platform pattern', async () => {

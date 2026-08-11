@@ -7,7 +7,11 @@ interface PlayButtonProps {
   disabled?: boolean
   disabledReason?: string
   emulators: readonly Emulator[]
-  /** No id means "the default emulator", which is what a bare click sends. */
+  /** The emulator this mod remembers, if any: it leads the menu and is what a
+   *  bare click launches. */
+  preferredEmulatorId?: number | null
+  /** No id means "whatever this mod would use anyway", which is what a bare
+   *  click sends. Picking from the menu is also how a mod's emulator is set. */
   onPlay: (emulatorId?: number) => void
 }
 
@@ -24,6 +28,7 @@ function PlayButton({
   disabled,
   disabledReason,
   emulators,
+  preferredEmulatorId,
   onPlay
 }: PlayButtonProps): React.JSX.Element {
   const [open, setOpen] = useState(false)
@@ -31,7 +36,7 @@ function PlayButton({
   const container = useRef<HTMLDivElement>(null)
   const menu = useRef<HTMLDivElement>(null)
 
-  const items = playMenuItems(emulators)
+  const items = playMenuItems(emulators, preferredEmulatorId)
   const hasMenu = items.length > 1
   const usable = hasMenu && !disabled
 
@@ -144,7 +149,7 @@ function PlayButton({
               }}
             >
               <span className="clip">{item.label}</span>
-              {item.isDefault && <span className="tag">default</span>}
+              {item.tag && <span className="tag">{item.tag}</span>}
             </button>
           ))}
         </div>

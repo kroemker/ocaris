@@ -3,10 +3,15 @@ import Database from 'better-sqlite3'
 import { runMigrations } from '../../../src/main/db/migrations'
 import {
   getAppConfig,
+  getWindowBoundsJson,
   saveRomConfig,
   saveStorageRoot,
-  saveTheme
+  saveTheme,
+  saveUiState,
+  saveWindowBounds
 } from '../../../src/main/db/appConfig'
+import { DEFAULT_UI_STATE } from '../../../src/shared/uiState'
+import type { UiState } from '../../../src/shared/ipc'
 
 function createDb(): Database.Database {
   const db = new Database(':memory:')
@@ -24,6 +29,7 @@ describe('appConfig DAO', () => {
       romUserConfirmed: false,
       theme: 'system',
       storageRoot: null,
+      uiState: DEFAULT_UI_STATE,
       updatedAt: null
     })
     db.close()
@@ -147,6 +153,81 @@ describe('appConfig DAO', () => {
       theme: 'dark',
       storageRoot: '/portable/ocaris'
     })
+
+    db.close()
+  })
+
+  const UI_STATE: UiState = {
+    library: { filter: 'ready', sort: 'author', groupByState: true, query: 'kaizo' },
+    settingsPane: 'emulators'
+  }
+
+  it('saves and re-reads the UI state', () => {
+    const db = createDb()
+
+    expect(saveUiState(db, UI_STATE).uiState).toEqual(UI_STATE)
+    expect(getAppConfig(db).uiState).toEqual(UI_STATE)
+
+    db.close()
+  })
+
+  it('leaves the ROM config, theme and storage root untouched when the UI state changes', () => {
+    const db = createDb()
+
+    const saved = saveRomConfig(db, {
+      romPath: '/roms/oot.z64',
+      romVariant: 'compressed',
+      romVerified: true,
+      romUserConfirmed: true
+    })
+    saveTheme(db, 'dark')
+    saveStorageRoot(db, '/portable/ocaris')
+
+    saveUiState(db, UI_STATE)
+
+    expect(getAppConfig(db)).toEqual({
+      ...saved,
+      theme: 'dark',
+      storageRoot: '/portable/ocaris',
+      uiState: UI_STATE
+    })
+
+    db.close()
+  })
+
+  it('falls back to the default UI state when the stored JSON is unreadable', () => {
+    const db = createDb()
+
+    saveUiState(db, UI_STATE)
+    db.prepare('UPDATE app_config SET ui_state_json = ? WHERE id = 1').run('{not json')
+
+    expect(getAppConfig(db).uiState).toEqual(DEFAULT_UI_STATE)
+
+    db.close()
+  })
+
+  it('stores window bounds without disturbing the rest of the config', () => {
+    const db = createDb()
+
+    const saved = saveTheme(db, 'light')
+    saveWindowBounds(db, { x: 10, y: 20, width: 800, height: 600, maximized: true })
+
+    expect(JSON.parse(getWindowBoundsJson(db) ?? 'null')).toEqual({
+      x: 10,
+      y: 20,
+      width: 800,
+      height: 600,
+      maximized: true
+    })
+    expect(getAppConfig(db)).toEqual(saved)
+
+    db.close()
+  })
+
+  it('reports no stored window bounds before anything has been saved', () => {
+    const db = createDb()
+
+    expect(getWindowBoundsJson(db)).toBeNull()
 
     db.close()
   })

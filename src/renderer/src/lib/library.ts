@@ -1,26 +1,43 @@
-import type { Emulator, ModStatusSummary, ModSummary } from '@shared/ipc'
+import type {
+  Emulator,
+  LibraryFilter,
+  LibrarySort,
+  ModStatusSummary,
+  ModSummary
+} from '@shared/ipc'
 
 /**
  * Filtering, sorting and the state-to-actions mapping for the library view,
  * kept free of React so it can be tested without a DOM.
  */
 
-export type LibraryFilter = 'all' | 'ready' | 'downloading' | 'available' | 'error'
+// The unions themselves live in the shared IPC contract - main validates them
+// before persisting - but they read as part of this module's API, so they are
+// re-exported here and everything else can keep importing them from one place.
+export type { LibraryFilter, LibrarySort }
 
-export type LibrarySort = 'name' | 'author' | 'status'
-
-export const FILTERS: ReadonlyArray<{ id: LibraryFilter; label: string; alert?: boolean }> = [
+export const FILTERS: ReadonlyArray<{
+  id: LibraryFilter
+  label: string
+  alert?: boolean
+  /** Chips that only appear once they have something in them, so an empty
+   *  "Hidden" doesn't advertise a feature nobody has used yet. */
+  onDemand?: boolean
+}> = [
   { id: 'all', label: 'All' },
+  { id: 'favorites', label: 'Favorites' },
   { id: 'ready', label: 'Ready to play' },
   { id: 'downloading', label: 'Downloading' },
   { id: 'available', label: 'Not installed' },
-  { id: 'error', label: 'Needs attention', alert: true }
+  { id: 'error', label: 'Needs attention', alert: true },
+  { id: 'hidden', label: 'Hidden', onDemand: true }
 ]
 
 export const SORTS: ReadonlyArray<{ id: LibrarySort; label: string }> = [
   { id: 'name', label: 'Name (A–Z)' },
   { id: 'author', label: 'Author' },
-  { id: 'status', label: 'Status' }
+  { id: 'status', label: 'Status' },
+  { id: 'recent', label: 'Recently added' }
 ]
 
 export function matchesFilter(mod: ModSummary, filter: LibraryFilter): boolean {
@@ -35,7 +52,26 @@ export function matchesFilter(mod: ModSummary, filter: LibraryFilter): boolean {
       return mod.status.state === 'not_downloaded'
     case 'error':
       return mod.status.state === 'error'
+    case 'favorites':
+      return mod.prefs.favorite
+    case 'hidden':
+      return mod.prefs.hidden
   }
+}
+
+/**
+ * Hiding a mod takes it out of every other view, which is the whole point -
+ * the "Hidden" filter is the only way back to it.
+ */
+function excludesHidden(filter: LibraryFilter): boolean {
+  return filter !== 'hidden'
+}
+
+/** A mod first seen this recently is worth pointing out in the row. */
+export const NEW_MOD_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
+
+export function isNewMod(mod: ModSummary, now = Date.now()): boolean {
+  return mod.firstSeenAt !== null && now - mod.firstSeenAt <= NEW_MOD_WINDOW_MS
 }
 
 /** Name and author only: descriptions are clamped to two lines in the row, so
@@ -65,6 +101,10 @@ export function sortMods(mods: readonly ModSummary[], sort: LibrarySort): ModSum
         return (a.author ?? '').localeCompare(b.author ?? '') || byName(a, b)
       case 'status':
         return STATE_ORDER[a.status.state] - STATE_ORDER[b.status.state] || byName(a, b)
+      case 'recent':
+        // Newest first. A row with no first_seen_at predates the column and
+        // sorts last rather than to the top of "recently added".
+        return (b.firstSeenAt ?? -Infinity) - (a.firstSeenAt ?? -Infinity) || byName(a, b)
     }
   })
 }
@@ -103,7 +143,12 @@ export interface LibraryView {
 
 export function visibleMods(mods: readonly ModSummary[], view: LibraryView): ModSummary[] {
   return sortMods(
-    mods.filter((mod) => matchesFilter(mod, view.filter) && matchesQuery(mod, view.query)),
+    mods.filter(
+      (mod) =>
+        matchesFilter(mod, view.filter) &&
+        matchesQuery(mod, view.query) &&
+        !(mod.prefs.hidden && excludesHidden(view.filter))
+    ),
     view.sort
   )
 }
@@ -111,24 +156,42 @@ export function visibleMods(mods: readonly ModSummary[], view: LibraryView): Mod
 /**
  * Chip counts are computed against the search-filtered pool, so search and
  * filter compose: searching narrows every chip's count, not just the list.
+ *
+ * Hidden mods are left out of every count except their own chip's, which is
+ * what makes that chip read as "and this many you put away".
  */
 export function countsByFilter(
   mods: readonly ModSummary[],
   query: string
 ): Record<LibraryFilter, number> {
   const pool = mods.filter((mod) => matchesQuery(mod, query))
+  const shown = pool.filter((mod) => !mod.prefs.hidden)
+  const count = (filter: LibraryFilter): number =>
+    shown.filter((mod) => matchesFilter(mod, filter)).length
+
   return {
-    all: pool.length,
-    ready: pool.filter((mod) => matchesFilter(mod, 'ready')).length,
-    downloading: pool.filter((mod) => matchesFilter(mod, 'downloading')).length,
-    available: pool.filter((mod) => matchesFilter(mod, 'available')).length,
-    error: pool.filter((mod) => matchesFilter(mod, 'error')).length
+    all: shown.length,
+    favorites: count('favorites'),
+    ready: count('ready'),
+    downloading: count('downloading'),
+    available: count('available'),
+    error: count('error'),
+    hidden: pool.filter((mod) => matchesFilter(mod, 'hidden')).length
   }
 }
 
 export interface DownloadProgressView {
   percent: number | null
   label: string
+}
+
+/** Date only: the hour a catalog refresh happened to run isn't information. */
+export function formatDate(timestamp: number): string {
+  return new Date(timestamp).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  })
 }
 
 export function formatBytes(bytes: number): string {
@@ -155,7 +218,18 @@ export function formatProgress(status: ModStatusSummary): DownloadProgressView {
 }
 
 export type ModActionId =
-  'download' | 'cancel' | 'play' | 'retry' | 'remove' | 'reveal' | 'openPage'
+  | 'download'
+  | 'cancel'
+  | 'play'
+  | 'retry'
+  | 'remove'
+  | 'reveal'
+  | 'openPage'
+  // Row controls rather than state-dependent actions: these three are offered
+  // whatever the mod's status is, so actionsFor() doesn't return them.
+  | 'toggleFavorite'
+  | 'toggleHidden'
+  | 'details'
 
 export interface ModAction {
   id: ModActionId
@@ -197,26 +271,55 @@ export function defaultEmulator(emulators: readonly Emulator[]): Emulator | unde
   return emulators.find((emulator) => emulator.isDefault) ?? emulators[0]
 }
 
+/**
+ * What Play launches for one mod: its remembered emulator if it still exists,
+ * the global default otherwise. A stored id whose emulator was deleted falls
+ * back silently - the alternative is a row that can't be played until the user
+ * finds a setting they don't remember making.
+ */
+export function emulatorForMod(
+  mod: ModSummary,
+  emulators: readonly Emulator[]
+): Emulator | undefined {
+  const remembered = emulators.find((emulator) => emulator.id === mod.prefs.emulatorId)
+  return remembered ?? defaultEmulator(emulators)
+}
+
 export interface PlayMenuItem {
   emulator: Emulator
   label: string
-  isDefault: boolean
+  /** The one a bare Play click uses. */
+  isPreferred: boolean
+  /** Why it's preferred: because this mod remembers it, or because it's the
+   *  app-wide default. Null for the rest. */
+  tag: 'this mod' | 'default' | null
 }
 
 /**
- * Entries for the Play button's menu. The default comes first so the top of
- * the list matches what clicking the button itself does; the rest keep the
- * order they were configured in.
+ * Entries for the Play button's menu. The emulator a bare click would use
+ * comes first, so the top of the list matches the button itself; the rest keep
+ * the order they were configured in.
  */
-export function playMenuItems(emulators: readonly Emulator[]): PlayMenuItem[] {
+export function playMenuItems(
+  emulators: readonly Emulator[],
+  preferredId?: number | null
+): PlayMenuItem[] {
   const fallback = defaultEmulator(emulators)
+  const remembered = emulators.find((emulator) => emulator.id === preferredId)
+  const preferred = remembered ?? fallback
 
   return [...emulators]
-    .sort((a, b) => Number(b.id === fallback?.id) - Number(a.id === fallback?.id))
+    .sort((a, b) => Number(b.id === preferred?.id) - Number(a.id === preferred?.id))
     .map((emulator) => ({
       emulator,
       label: `Play with ${emulator.name}`,
-      isDefault: emulator.id === fallback?.id
+      isPreferred: emulator.id === preferred?.id,
+      tag:
+        emulator.id === remembered?.id
+          ? ('this mod' as const)
+          : emulator.id === fallback?.id
+            ? ('default' as const)
+            : null
     }))
 }
 

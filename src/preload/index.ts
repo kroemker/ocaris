@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import {
   IpcChannel,
   type AppSettings,
@@ -9,19 +9,25 @@ import {
   type EmulatorInput,
   type EmulatorInstallResult,
   type EmulatorSaveResult,
+  type ModPrefs,
+  type ModPrefsPatch,
+  type ModProgressEvent,
   type ModSummary,
   type RomConfig,
   type RomConfirmRequest,
   type RomVerification,
   type StorageUsage,
-  type ThemeSource
+  type ThemeSource,
+  type UiState
 } from '@shared/ipc'
 
 const api = {
   config: {
     get: (): Promise<AppSettings> => ipcRenderer.invoke(IpcChannel.ConfigGet),
     setTheme: (theme: ThemeSource): Promise<AppSettings> =>
-      ipcRenderer.invoke(IpcChannel.ConfigSetTheme, theme)
+      ipcRenderer.invoke(IpcChannel.ConfigSetTheme, theme),
+    setUiState: (uiState: UiState): Promise<AppSettings> =>
+      ipcRenderer.invoke(IpcChannel.ConfigSetUiState, uiState)
   },
   rom: {
     selectFile: (): Promise<string | null> => ipcRenderer.invoke(IpcChannel.RomSelectFile),
@@ -61,7 +67,20 @@ const api = {
     /** Resolves true if a download was in flight and has been aborted. */
     cancel: (modId: string): Promise<boolean> => ipcRenderer.invoke(IpcChannel.ModCancel, modId),
     remove: (modId: string): Promise<void> => ipcRenderer.invoke(IpcChannel.ModRemove, modId),
-    reveal: (modId: string): Promise<void> => ipcRenderer.invoke(IpcChannel.ModReveal, modId)
+    reveal: (modId: string): Promise<void> => ipcRenderer.invoke(IpcChannel.ModReveal, modId),
+    setPrefs: (modId: string, patch: ModPrefsPatch): Promise<ModPrefs> =>
+      ipcRenderer.invoke(IpcChannel.ModSetPrefs, modId, patch),
+    /**
+     * Download progress, pushed while an install runs. Returns its own
+     * unsubscribe: removeListener needs the exact function that was added, and
+     * the renderer never sees the wrapper this side registers.
+     */
+    onProgress: (listener: (progress: ModProgressEvent) => void): (() => void) => {
+      const handler = (_event: IpcRendererEvent, progress: ModProgressEvent): void =>
+        listener(progress)
+      ipcRenderer.on(IpcChannel.ModProgress, handler)
+      return () => ipcRenderer.removeListener(IpcChannel.ModProgress, handler)
+    }
   },
   storage: {
     usage: (): Promise<StorageUsage> => ipcRenderer.invoke(IpcChannel.StorageUsage),

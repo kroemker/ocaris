@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3'
-import type { ThemeSource } from '@shared/ipc'
+import type { ThemeSource, UiState, WindowBounds } from '@shared/ipc'
+import { DEFAULT_UI_STATE, parseUiState } from '@shared/uiState'
 import type { RomVariant } from '../rom/checksums'
 
 export interface AppConfig {
@@ -10,6 +11,8 @@ export interface AppConfig {
   theme: ThemeSource
   /** Root directory for patches/roms, or null to use the default userData location. */
   storageRoot: string | null
+  /** Renderer view state - filters, sort, search, last settings pane. */
+  uiState: UiState
   updatedAt: number | null
 }
 
@@ -20,6 +23,7 @@ interface AppConfigRow {
   rom_user_confirmed: number
   theme: ThemeSource | null
   storage_root: string | null
+  ui_state_json: string | null
   updated_at: number | null
 }
 
@@ -32,6 +36,7 @@ const EMPTY_CONFIG: AppConfig = {
   romUserConfirmed: false,
   theme: DEFAULT_THEME,
   storageRoot: null,
+  uiState: DEFAULT_UI_STATE,
   updatedAt: null
 }
 
@@ -43,6 +48,7 @@ function rowToConfig(row: AppConfigRow): AppConfig {
     romUserConfirmed: row.rom_user_confirmed === 1,
     theme: row.theme ?? DEFAULT_THEME,
     storageRoot: row.storage_root,
+    uiState: parseUiState(row.ui_state_json),
     updatedAt: row.updated_at
   }
 }
@@ -50,7 +56,7 @@ function rowToConfig(row: AppConfigRow): AppConfig {
 export function getAppConfig(db: Database.Database): AppConfig {
   const row = db
     .prepare(
-      'SELECT rom_path, rom_variant, rom_verified, rom_user_confirmed, theme, storage_root, updated_at FROM app_config WHERE id = 1'
+      'SELECT rom_path, rom_variant, rom_verified, rom_user_confirmed, theme, storage_root, ui_state_json, updated_at FROM app_config WHERE id = 1'
     )
     .get() as AppConfigRow | undefined
 
@@ -115,4 +121,39 @@ export function saveStorageRoot(db: Database.Database, storageRoot: string | nul
   ).run({ storageRoot })
 
   return getAppConfig(db)
+}
+
+/**
+ * Writes only the ui_state_json column, for the same reason saveTheme only
+ * writes theme. Callers pass a whole UiState rather than a patch: the renderer
+ * owns this value end to end, so merging in two places would only invite the
+ * two copies to disagree.
+ */
+export function saveUiState(db: Database.Database, uiState: UiState): AppConfig {
+  db.prepare(
+    `INSERT INTO app_config (id, ui_state_json) VALUES (1, @uiState)
+     ON CONFLICT(id) DO UPDATE SET ui_state_json = excluded.ui_state_json`
+  ).run({ uiState: JSON.stringify(uiState) })
+
+  return getAppConfig(db)
+}
+
+/**
+ * Window bounds live in app_config but stay out of AppConfig: main is the only
+ * side that reads or writes them, and nothing that asks for the config wants
+ * them. Returns the raw JSON so the caller can normalize it against the
+ * displays actually attached right now.
+ */
+export function getWindowBoundsJson(db: Database.Database): string | null {
+  const row = db.prepare('SELECT window_bounds_json FROM app_config WHERE id = 1').get() as
+    { window_bounds_json: string | null } | undefined
+
+  return row?.window_bounds_json ?? null
+}
+
+export function saveWindowBounds(db: Database.Database, bounds: WindowBounds): void {
+  db.prepare(
+    `INSERT INTO app_config (id, window_bounds_json) VALUES (1, @bounds)
+     ON CONFLICT(id) DO UPDATE SET window_bounds_json = excluded.window_bounds_json`
+  ).run({ bounds: JSON.stringify(bounds) })
 }

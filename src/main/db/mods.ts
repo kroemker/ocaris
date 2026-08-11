@@ -1,4 +1,6 @@
 import type Database from 'better-sqlite3'
+import type { ModPrefs } from '@shared/ipc'
+import { rowToModPrefs, type ModPrefsRow } from './modPrefs'
 
 export type ModStatusState = 'not_downloaded' | 'downloading' | 'ready' | 'error'
 
@@ -38,6 +40,7 @@ export interface ModStatus {
 
 export interface ModWithStatus extends Mod {
   status: ModStatus
+  prefs: ModPrefs
 }
 
 interface ModRow {
@@ -158,15 +161,20 @@ export function getCatalogStats(db: Database.Database): CatalogStats {
   return { count: row.count, refreshedAt: row.refreshed_at }
 }
 
+// LEFT JOIN for mod_prefs, INNER for mod_status: every mod has a status row
+// (upsertMods creates one), but a prefs row only exists once the user has
+// favourited, hidden or picked an emulator for that mod.
 const LIST_WITH_STATUS_SQL = `
   SELECT mods.*, mod_status.state, mod_status.patch_file_path, mod_status.patched_rom_path,
          mod_status.download_progress_bytes, mod_status.download_total_bytes,
-         mod_status.error_message, mod_status.updated_at as status_updated_at
+         mod_status.error_message, mod_status.updated_at as status_updated_at,
+         mod_prefs.favorite, mod_prefs.hidden, mod_prefs.emulator_id
   FROM mods
   JOIN mod_status ON mod_status.mod_id = mods.id
+  LEFT JOIN mod_prefs ON mod_prefs.mod_id = mods.id
 `
 
-interface JoinedRow extends ModRow {
+interface JoinedRow extends ModRow, Partial<ModPrefsRow> {
   state: ModStatusState
   patch_file_path: string | null
   patched_rom_path: string | null
@@ -188,7 +196,8 @@ function rowToModWithStatus(row: JoinedRow): ModWithStatus {
       download_total_bytes: row.download_total_bytes,
       error_message: row.error_message,
       updated_at: row.status_updated_at
-    })
+    }),
+    prefs: rowToModPrefs(row)
   }
 }
 

@@ -1,10 +1,11 @@
-import { app, shell, nativeTheme, BrowserWindow } from 'electron'
+import { app, shell, nativeTheme, screen, BrowserWindow } from 'electron'
 import { join } from 'node:path'
 import { initDatabase, getDatabase } from './db'
-import { getAppConfig } from './db/appConfig'
+import { getAppConfig, getWindowBoundsJson, saveWindowBounds } from './db/appConfig'
 import { registerIpcHandlers } from './ipc'
 import { getThumbnailDir } from './storage/paths'
 import { registerThumbnailProtocol, registerThumbnailScheme } from './thumbnails/protocol'
+import { MIN_HEIGHT, MIN_WIDTH, parseWindowBounds } from './window/bounds'
 import {
   applyTitleBarOverlay,
   backgroundColorForTheme,
@@ -13,13 +14,25 @@ import {
 
 const isDev = !app.isPackaged
 
+/** Bounds are also written while the window moves, so a crash or a force-quit
+ *  doesn't lose the layout. Long enough not to write once per drag frame. */
+const BOUNDS_SAVE_DEBOUNCE_MS = 500
+
 // Must happen before 'ready', unlike the protocol handler itself.
 registerThumbnailScheme()
 
 function createWindow(): void {
+  const restored = parseWindowBounds(
+    getWindowBoundsJson(getDatabase()),
+    screen.getAllDisplays().map((display) => display.workArea)
+  )
+
   const mainWindow = new BrowserWindow({
-    width: 1100,
-    height: 720,
+    width: restored.width,
+    height: restored.height,
+    // Electron centers the window on the primary display when these are
+    // undefined, which is what an unusable stored position falls back to.
+    ...(restored.x !== null && restored.y !== null ? { x: restored.x, y: restored.y } : {}),
     show: false,
     // Painted before the renderer loads, so the window doesn't flash white
     // (or black) in the wrong theme on launch.
@@ -31,8 +44,8 @@ function createWindow(): void {
     // the renderer accounts for via env(titlebar-area-x).
     titleBarStyle: 'hidden',
     titleBarOverlay: titleBarOverlayForTheme(),
-    minWidth: 720,
-    minHeight: 480,
+    minWidth: MIN_WIDTH,
+    minHeight: MIN_HEIGHT,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -41,8 +54,35 @@ function createWindow(): void {
     }
   })
 
+  if (restored.maximized) mainWindow.maximize()
+
   mainWindow.once('ready-to-show', () => {
     mainWindow.show()
+  })
+
+  // getNormalBounds(), not getBounds(): a maximized window would otherwise
+  // store the screen-filling rect and un-maximize to the wrong size next run.
+  const persistBounds = (): void => {
+    if (mainWindow.isDestroyed() || mainWindow.isMinimized()) return
+    const { x, y, width, height } = mainWindow.getNormalBounds()
+    saveWindowBounds(getDatabase(), { x, y, width, height, maximized: mainWindow.isMaximized() })
+  }
+
+  let boundsTimer: NodeJS.Timeout | undefined
+  const persistBoundsSoon = (): void => {
+    if (boundsTimer) clearTimeout(boundsTimer)
+    boundsTimer = setTimeout(persistBounds, BOUNDS_SAVE_DEBOUNCE_MS)
+  }
+
+  mainWindow.on('resize', persistBoundsSoon)
+  mainWindow.on('move', persistBoundsSoon)
+  mainWindow.on('maximize', persistBoundsSoon)
+  mainWindow.on('unmaximize', persistBoundsSoon)
+  // The window is still alive on 'close' (unlike 'closed'), so this is the last
+  // point its geometry can be read.
+  mainWindow.on('close', () => {
+    if (boundsTimer) clearTimeout(boundsTimer)
+    persistBounds()
   })
 
   // Fires both when the user picks a theme (config:set-theme assigns

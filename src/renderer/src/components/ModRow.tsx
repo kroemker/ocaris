@@ -1,6 +1,6 @@
 import ModThumbnail from './ModThumbnail'
 import ModRowActions from './ModRowActions'
-import { sourceLabel, type ActionContext, type ModActionId } from '../lib/library'
+import { isNewMod, sourceLabel, type ActionContext, type ModActionId } from '../lib/library'
 import type { ModSummary } from '@shared/ipc'
 
 interface ModRowProps {
@@ -11,13 +11,30 @@ interface ModRowProps {
 
 function ModRow({ mod, context, onAction }: ModRowProps): React.JSX.Element {
   const isError = mod.status.state === 'error'
+  const classes = ['row']
+  if (isError) classes.push('is-error')
+  if (mod.prefs.hidden) classes.push('is-hidden-mod')
 
   return (
-    <article className={`row${isError ? ' is-error' : ''}`}>
-      <ModThumbnail mod={mod} />
+    <article className={classes.join(' ')}>
+      {/* The thumbnail is the row's large click target for the details
+          dialog; the title is the accessible one. */}
+      <button
+        className="thumb-button"
+        aria-label={`Details for ${mod.name}`}
+        tabIndex={-1}
+        onClick={() => onAction('details', mod)}
+      >
+        <ModThumbnail mod={mod} />
+      </button>
 
       <div className="body">
-        <h2 className="title clip">{mod.name}</h2>
+        <h2 className="title clip">
+          <button className="linklike" onClick={() => onAction('details', mod)}>
+            {mod.name}
+          </button>
+          {isNewMod(mod) && <span className="tag new">New</span>}
+        </h2>
         <div className="meta">
           {mod.author && <span className="clip">{mod.author}</span>}
           {mod.author && mod.completionStatus && <span className="sep">·</span>}
@@ -35,6 +52,27 @@ function ModRow({ mod, context, onAction }: ModRowProps): React.JSX.Element {
         <p className={`desc${isError ? ' err' : ''}`}>
           {isError ? mod.status.errorMessage : mod.description}
         </p>
+      </div>
+
+      {/* Favourite and hide sit apart from the state-driven actions: they
+          apply in every state and shouldn't move around as one changes. */}
+      <div className="marks">
+        <button
+          className={`btn icon sm ghost${mod.prefs.favorite ? ' on' : ''}`}
+          aria-pressed={mod.prefs.favorite}
+          title={mod.prefs.favorite ? 'Remove from favorites' : 'Add to favorites'}
+          onClick={() => onAction('toggleFavorite', mod)}
+        >
+          {mod.prefs.favorite ? '★' : '☆'}
+        </button>
+        <button
+          className="btn icon sm ghost"
+          aria-pressed={mod.prefs.hidden}
+          title={mod.prefs.hidden ? 'Show in the library again' : 'Hide from the library'}
+          onClick={() => onAction('toggleHidden', mod)}
+        >
+          {mod.prefs.hidden ? '👁' : '🚫'}
+        </button>
       </div>
 
       <ModRowActions mod={mod} context={context} onAction={onAction} />

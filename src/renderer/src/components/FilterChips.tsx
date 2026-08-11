@@ -23,6 +23,11 @@ function FilterChips({
     <div className="filterbar">
       {FILTERS.map((filter) => {
         const count = counts[filter.id]
+        // An on-demand chip ("Hidden") stays out of the bar until it has
+        // something in it - or until it's the one selected, which is the only
+        // way back out of an empty one.
+        if (filter.onDemand && count === 0 && filter.id !== active) return null
+
         const classes = ['chip']
         if (filter.id === active) classes.push('on')
         // "Needs attention" only reads as a warning when there's something in it.

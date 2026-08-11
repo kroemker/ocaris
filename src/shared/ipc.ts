@@ -11,9 +11,49 @@ export type RomVariant = 'compressed' | 'byteswap-compressed' | 'decompressed'
  */
 export type ThemeSource = 'system' | 'light' | 'dark'
 
+/**
+ * View state the library list is driven by. Lives in the shared contract
+ * rather than the renderer because main validates it before storing it.
+ */
+export type LibraryFilter =
+  'all' | 'ready' | 'downloading' | 'available' | 'error' | 'favorites' | 'hidden'
+
+export type LibrarySort = 'name' | 'author' | 'status' | 'recent'
+
+export type SettingsPane = 'appearance' | 'rom' | 'emulators' | 'catalog' | 'storage' | 'about'
+
+export interface LibraryPrefs {
+  filter: LibraryFilter
+  sort: LibrarySort
+  groupByState: boolean
+  query: string
+}
+
+/** Everything about the renderer's presentation that survives a restart. */
+export interface UiState {
+  library: LibraryPrefs
+  /** Which pane the gear button opens. */
+  settingsPane: SettingsPane
+}
+
+/**
+ * Where the window was when it was last closed. Written by main on window
+ * events, never through the renderer, so it is not part of AppSettings.
+ * x/y are null when the position is unknown or unusable, which leaves the
+ * placement to Electron.
+ */
+export interface WindowBounds {
+  x: number | null
+  y: number | null
+  width: number
+  height: number
+  maximized: boolean
+}
+
 export const IpcChannel = {
   ConfigGet: 'config:get',
   ConfigSetTheme: 'config:set-theme',
+  ConfigSetUiState: 'config:set-ui-state',
   RomSelectFile: 'rom:select-file',
   RomVerify: 'rom:verify',
   RomConfirm: 'rom:confirm',
@@ -35,6 +75,9 @@ export const IpcChannel = {
   ModCancel: 'mod:cancel',
   ModRemove: 'mod:remove',
   ModReveal: 'mod:reveal',
+  ModSetPrefs: 'mod:set-prefs',
+  /** main -> renderer, unlike every other channel here. */
+  ModProgress: 'mod:progress',
   StorageUsage: 'storage:usage',
   StorageOpenFolder: 'storage:open-folder',
   StorageSelectFolder: 'storage:select-folder',
@@ -44,6 +87,7 @@ export const IpcChannel = {
 
 export interface AppSettings {
   theme: ThemeSource
+  uiState: UiState
   appVersion: string
   platform: NodeJS.Platform
 }
@@ -134,6 +178,22 @@ export interface ModStatusSummary {
   errorMessage: string | null
 }
 
+/**
+ * Per-mod choices the user made, kept apart from ModStatusSummary because they
+ * outlive it: removing a patched ROM resets the status, and a favourite or a
+ * remembered emulator has to survive that.
+ */
+export interface ModPrefs {
+  favorite: boolean
+  hidden: boolean
+  /** Emulator to launch this mod with, overriding the global default. Null
+   *  means "whatever the default is", which is also what a deleted emulator
+   *  falls back to. */
+  emulatorId: number | null
+}
+
+export type ModPrefsPatch = Partial<ModPrefs>
+
 /** A catalog a mod row came from. Merged rows list more than one. */
 export interface ModSourceSummary {
   source: string
@@ -158,7 +218,22 @@ export interface ModSummary {
   pageUrl: string | null
   completionStatus: string | null
   sources: ModSourceSummary[]
+  /** When this mod first appeared in a refresh, which is what "recently added"
+   *  sorts on. Null only for rows that predate the column's backfill. */
+  firstSeenAt: number | null
   status: ModStatusSummary
+  prefs: ModPrefs
+}
+
+/**
+ * Pushed while a mod downloads, so the list doesn't have to poll for progress.
+ * Carries the status fields that move, not a whole ModSummary: nothing else
+ * about the row can change mid-download.
+ */
+export interface ModProgressEvent {
+  modId: string
+  downloadProgressBytes: number
+  downloadTotalBytes: number | null
 }
 
 export interface CatalogSourceResult {
