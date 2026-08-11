@@ -123,7 +123,7 @@ A missing ROM owns the whole view and opens settings on the ROM pane on first la
 
 `npmRebuild` is set to `false`: electron-builder's default native-module rebuild step needs to download Electron's headers, which this environment's network policy blocks. That rebuild would otherwise recompile `better-sqlite3` from source against Electron's Node ABI - but `better-sqlite3` already installs an Electron-aware prebuilt binary via `prebuild-install`, which every smoke test in this project (including one run directly against the packaged `release/linux-unpacked/ocaris` binary, not just `npm run dev`) has exercised successfully. If a future native dependency doesn't ship Electron-compatible prebuilds, this will need revisiting (either restoring `npmRebuild` somewhere with network access, or running `electron-rebuild` manually).
 
-No app icon yet - packaged builds use Electron's default icon. Cosmetic, not blocking.
+The app icon is a single 1254x1254 `resources/icon.png`, pointed at from each platform's `build` entry: electron-builder converts it to the `.ico` Windows embeds in the executable and the `.icns` macOS wants, so there is one file to replace rather than three. `resources/**` is in `files` because the main process also imports it (`?asset`, which resolves relative to the app root, not into `out/`) to set the window icon on Linux - the one platform that takes it from the window rather than from the executable or the bundle.
 
 ### Dependency deprecation warnings
 

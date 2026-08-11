@@ -25,24 +25,28 @@
       "output": "release"
     },
     "files": [
-      "out/**/*"
+      "out/**/*",
+      "resources/**/*"
     ],
     "linux": {
       "target": [
         "AppImage"
       ],
-      "category": "Game"
+      "category": "Game",
+      "icon": "resources/icon.png"
     },
     "mac": {
       "target": [
         "dmg"
       ],
-      "category": "public.app-category.games"
+      "category": "public.app-category.games",
+      "icon": "resources/icon.png"
     },
     "win": {
       "target": [
         "nsis"
-      ]
+      ],
+      "icon": "resources/icon.png"
     }
   },
   "dependencies": {

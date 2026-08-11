@@ -1,5 +1,8 @@
 import { app, shell, nativeTheme, screen, BrowserWindow } from 'electron'
 import { join } from 'node:path'
+// ?asset copies the file into the build output, so the path still resolves
+// from inside the packaged asar - a plain relative path would not.
+import icon from '../../resources/icon.png?asset'
 import { initDatabase, getDatabase } from './db'
 import { getAppConfig, getWindowBoundsJson, saveWindowBounds } from './db/appConfig'
 import { registerIpcHandlers } from './ipc'
@@ -34,6 +37,10 @@ function createWindow(): void {
     // undefined, which is what an unusable stored position falls back to.
     ...(restored.x !== null && restored.y !== null ? { x: restored.x, y: restored.y } : {}),
     show: false,
+    // Windows takes the window icon from the executable and macOS from the
+    // app bundle, both of which electron-builder generates from the same
+    // file; Linux is the platform that needs it set here.
+    ...(process.platform === 'linux' ? { icon } : {}),
     // Painted before the renderer loads, so the window doesn't flash white
     // (or black) in the wrong theme on launch.
     backgroundColor: backgroundColorForTheme(),

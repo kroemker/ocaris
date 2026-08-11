@@ -7,9 +7,7 @@ Candidates, not commitments. Roughly ordered by value-per-effort within each gro
 - **Per-mod emulator arguments.** The emulator to launch with is now remembered per mod; a per-mod argument override (a mod that needs a specific flag) is the same table and one more column.
 - **Sort by size / duration / difficulty.** The wiki infobox carries fields the merged row currently discards.
 - **Screenshots in the details dialog.** It shows the one cached thumbnail; the catalogs often have several images per mod.
-- **App icon.** Packaged builds still use Electron's default. Needs a designed asset, not just wiring.
-
-Done since this list was written: pushed `mod:progress` events instead of the 750ms poll, the "Recently added" sort and `New` badge, favorites/hide, the per-mod emulator override and the details dialog. The patched-ROM output directory was already configurable (Settings → Storage).
+Done since this list was written: pushed `mod:progress` events instead of the 750ms poll, the "Recently added" sort and `New` badge, favorites/hide, the per-mod emulator override, the details dialog and the app icon. The patched-ROM output directory was already configurable (Settings → Storage).
 
 ## Install pipeline
 
