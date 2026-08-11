@@ -15,7 +15,9 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
-    "package:dir": "electron-vite build && electron-builder --dir"
+    "package:dir": "electron-vite build && electron-builder --dir",
+    "package": "electron-vite build && electron-builder",
+    "release": "electron-vite build && electron-builder --publish always"
   },
   "build": {
     "appId": "com.ocaris.app",
@@ -28,6 +30,14 @@
       "out/**/*",
       "resources/**/*"
     ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "kroemker",
+        "repo": "ocaris",
+        "releaseType": "draft"
+      }
+    ],
     "linux": {
       "target": [
         "AppImage"
@@ -37,7 +47,8 @@
     },
     "mac": {
       "target": [
-        "dmg"
+        "dmg",
+        "zip"
       ],
       "category": "public.app-category.games",
       "icon": "resources/icon.png"

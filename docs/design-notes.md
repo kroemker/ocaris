@@ -125,6 +125,12 @@ A missing ROM owns the whole view and opens settings on the ROM pane on first la
 
 The app icon is a single 1254x1254 `resources/icon.png`, pointed at from each platform's `build` entry: electron-builder converts it to the `.ico` Windows embeds in the executable and the `.icns` macOS wants, so there is one file to replace rather than three. `resources/**` is in `files` because the main process also imports it (`?asset`, which resolves relative to the app root, not into `out/`) to set the window icon on Linux - the one platform that takes it from the window rather than from the executable or the bundle.
 
+### Publishing
+
+`publish` points at the GitHub repo (public, so an in-app updater can fetch release assets without a token - a private repo would need one, and an app cannot ship one) with `releaseType: draft`, so `npm run release` uploads into a draft nobody sees until it is published by hand.
+
+The artifact that makes self-update possible is not the installer but the `latest.yml` electron-builder writes beside it: version, file name, size and a sha512 the updater checks the download against. macOS carries `zip` alongside `dmg` for the same reason - the mac feed is built from the zip, and a dmg alone produces nothing updatable. Both exist ahead of the updater itself, because the first release that can be updated *from* has to already contain all of this; see [app-update-plan.md](./app-update-plan.md).
+
 ### Dependency deprecation warnings
 
 `npm install` used to print four `npm warn deprecated` lines - all from packages several levels deep inside `electron-builder`'s own dependency tree (`@electron/asar` for asar packing, `electron-winstaller` for the Windows installer target), never from anything Ocaris depends on directly, and never bundled into the shipped app (electron-builder is a devDependency only; none of these end up in `out/` or `release/`).

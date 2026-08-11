@@ -69,6 +69,15 @@ tests/              Unit tests, mirroring the src/ layout
 
 `npmRebuild` is set to `false`; see [docs/design-notes.md](./docs/design-notes.md#packaging) for why, and for the dependency-deprecation notes.
 
+## Releasing
+
+```sh
+npm version minor        # bumps package.json and creates the vX.Y.Z tag
+GH_TOKEN=<token> npm run release
+```
+
+`npm run release` builds and uploads the installers for the current platform to a **draft** GitHub release, along with the `latest*.yml` manifests an in-app updater reads. Releases stay drafts until published by hand, and each platform's artifacts have to be built on that platform (or by CI).
+
 ## Documentation
 
 - [docs/design-notes.md](./docs/design-notes.md) — how each subsystem works and why it's built that way.

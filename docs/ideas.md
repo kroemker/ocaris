@@ -37,7 +37,7 @@ Done since this list was written: pushed `mod:progress` events instead of the 75
 
 - **Grid/cover view** alongside the current list, with the larger cached screenshots put to use.
 - **Keyboard-first navigation.** `/` to search, arrows through rows, Enter to play — the list is already a flat structure.
-- **In-app updater.** `electron-updater` against GitHub releases, once installers are actually published.
+- **In-app updater.** `electron-updater` against GitHub releases, once installers are actually published — planned in [app-update-plan.md](./app-update-plan.md).
 - **Windows/macOS packaging verification.** Only the Linux `--dir` target has been built and smoke-tested.
 - **Accessibility pass.** Focus order, live-region announcements for download state, contrast audit of both themes.
 - **Localization.** The UI string count is still small enough that extracting them is cheap now and expensive later.
