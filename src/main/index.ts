@@ -37,10 +37,12 @@ function createWindow(): void {
     // undefined, which is what an unusable stored position falls back to.
     ...(restored.x !== null && restored.y !== null ? { x: restored.x, y: restored.y } : {}),
     show: false,
-    // Windows takes the window icon from the executable and macOS from the
-    // app bundle, both of which electron-builder generates from the same
-    // file; Linux is the platform that needs it set here.
-    ...(process.platform === 'linux' ? { icon } : {}),
+    // macOS takes the icon from the app bundle and ignores this; Linux has
+    // no other source for it. Windows uses the executable's icon once
+    // packaged, but in dev the executable is electron.exe - so setting it
+    // here is what puts the right icon on the dev window and its taskbar
+    // button, and it is harmless in a packaged build.
+    ...(process.platform === 'darwin' ? {} : { icon }),
     // Painted before the renderer loads, so the window doesn't flash white
     // (or black) in the wrong theme on launch.
     backgroundColor: backgroundColorForTheme(),
