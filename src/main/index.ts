@@ -6,6 +6,7 @@ import icon from '../../resources/icon.png?asset'
 import { initDatabase, getDatabase } from './db'
 import { getAppConfig, getWindowBoundsJson, saveWindowBounds } from './db/appConfig'
 import { registerIpcHandlers } from './ipc'
+import { scheduleInitialUpdateCheck } from './ipc/update'
 import { getThumbnailDir } from './storage/paths'
 import { registerThumbnailProtocol, registerThumbnailScheme } from './thumbnails/protocol'
 import { MIN_HEIGHT, MIN_WIDTH, parseWindowBounds } from './window/bounds'
@@ -129,6 +130,9 @@ void app.whenReady().then(() => {
   nativeTheme.themeSource = getAppConfig(getDatabase()).theme
 
   createWindow()
+
+  // After the window, so the check is competing with nothing on startup.
+  scheduleInitialUpdateCheck()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

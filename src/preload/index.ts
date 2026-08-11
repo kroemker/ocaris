@@ -18,7 +18,8 @@ import {
   type RomVerification,
   type StorageUsage,
   type ThemeSource,
-  type UiState
+  type UiState,
+  type UpdateStatus
 } from '@shared/ipc'
 
 const api = {
@@ -80,6 +81,19 @@ const api = {
         listener(progress)
       ipcRenderer.on(IpcChannel.ModProgress, handler)
       return () => ipcRenderer.removeListener(IpcChannel.ModProgress, handler)
+    }
+  },
+  update: {
+    getStatus: (): Promise<UpdateStatus> => ipcRenderer.invoke(IpcChannel.UpdateGetStatus),
+    check: (): Promise<UpdateStatus> => ipcRenderer.invoke(IpcChannel.UpdateCheck),
+    download: (): Promise<UpdateStatus> => ipcRenderer.invoke(IpcChannel.UpdateDownload),
+    /** Quits and installs. Nothing resolves - the app is gone. */
+    install: (): Promise<void> => ipcRenderer.invoke(IpcChannel.UpdateInstall),
+    /** Same subscribe-and-unsubscribe shape as mod.onProgress. */
+    onStatus: (listener: (status: UpdateStatus) => void): (() => void) => {
+      const handler = (_event: IpcRendererEvent, status: UpdateStatus): void => listener(status)
+      ipcRenderer.on(IpcChannel.UpdateStatus, handler)
+      return () => ipcRenderer.removeListener(IpcChannel.UpdateStatus, handler)
     }
   },
   storage: {

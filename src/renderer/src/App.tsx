@@ -14,6 +14,8 @@ import {
   type ModActionId
 } from './lib/library'
 import { useUiState } from './lib/useUiState'
+import { updateView } from './lib/update'
+import { useUpdateStatus } from './lib/useUpdateStatus'
 import type { Emulator, ModSummary, RomConfig } from '@shared/ipc'
 
 function App(): React.JSX.Element {
@@ -24,6 +26,11 @@ function App(): React.JSX.Element {
 
   const ui = useUiState()
   const { filter, sort, query, groupByState } = ui.state.library
+
+  // Only the 'ready' state reaches the main view; an available or downloading
+  // update stays in Settings, where the user went looking for it.
+  const update = useUpdateStatus()
+  const updateBanner = updateView(update.status, null).banner
 
   const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(new Set())
   const [refreshing, setRefreshing] = useState(false)
@@ -281,6 +288,19 @@ function App(): React.JSX.Element {
           ⚙
         </button>
       </TopBar>
+
+      {updateBanner && (
+        <div className="banner info">
+          <span>Ocaris {update.status.version ?? 'update'} is ready to install.</span>
+          <span className="spacer" />
+          <button className="btn sm" onClick={update.install}>
+            Restart now
+          </button>
+          <button className="btn sm ghost" onClick={() => openSettings('about')}>
+            Details
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="banner" role="alert">

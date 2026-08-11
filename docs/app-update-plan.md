@@ -44,7 +44,9 @@ Landed: the `publish` block (draft releases), `zip` alongside `dmg` for macOS, a
 
 </details>
 
-## WP-U2 — Updater in the main process
+## WP-U2 — Updater in the main process — **done**
+
+Landed as `src/main/update/updater.ts` (the state machine, driven through an injectable `UpdaterLike`) plus `src/main/ipc/update.ts` (the Electron wiring, the broadcast to every window and the launch check). Covered by `tests/main/update/updater.test.ts` with a fake updater - no network.
 
 **Goal:** The main process can check, download and install an update, and reports every state transition to the renderer.
 
@@ -64,7 +66,9 @@ Landed: the `publish` block (draft releases), `zip` alongside `dmg` for macOS, a
 - Unit tests around the state mapping and the "dev build reports `unsupported`" guard, with `autoUpdater` faked - no network in tests, matching how the catalog sources are tested.
 - A packaged build one version behind the published release reaches `ready` and installs on quit.
 
-## WP-U3 — Renderer surface
+## WP-U3 — Renderer surface — **done**
+
+Landed as `src/renderer/src/lib/update.ts` (status to headline/detail/action, unit-tested per state), `useUpdateStatus()`, the About pane section and a banner that appears only at `ready`.
 
 **Goal:** The user can see their version, ask for an update, and apply one, without hunting.
 
@@ -81,7 +85,9 @@ Landed: the `publish` block (draft releases), `zip` alongside `dmg` for macOS, a
 - Every state has a defined rendering, including `unsupported` (which says why - "updates are handled by your package manager / not available in a dev build" - rather than showing a dead button).
 - The status logic lives in a pure module under `src/renderer/src/lib/` and is unit-tested there, like `library.ts`.
 
-## WP-U4 — Release automation
+## WP-U4 — Release automation — **done**
+
+Landed as `.github/workflows/release.yml` (tag-triggered, three-platform matrix, refuses to run when the tag disagrees with `package.json`) and `.github/workflows/ci.yml` (lint, typecheck, test on PRs).
 
 **Goal:** Pushing a tag produces the release; no one builds installers by hand on three machines.
 

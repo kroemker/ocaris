@@ -93,6 +93,20 @@ Icons are original in-house SVG-style badges (`EmulatorIcon`, reusing `ModThumbn
 
 Known emulators can also be auto-installed rather than just detected. A registry entry optionally carries a `download` source (`EmulatorDownloadSource`) - a GitHub repo plus a per-platform regex matched against that repo's latest release assets, since an exact filename would go stale the moment a new version ships. `src/main/emulator/install.ts`'s `installKnownEmulator` fetches the latest release (`src/main/emulator/github.ts`), downloads the matching asset with the same `downloadFile` used for mod patches, extracts it with `adm-zip` (or, for a single-file asset like an AppImage, just marks it executable) into `<storageRoot>/emulators/<knownId>`, and locates the binary inside via the same `executableNames` auto-detect already uses. Like `installMod`, it never throws - failures and cancellation both resolve to a result object - and only carries a `download` entry for emulators that are actually open-source and publish real per-platform build artifacts as GitHub release assets; Project64 (closed-source, no stable download URL) and RetroArch (its releases are changelog markers, not where its builds are published) are deliberately left without one, so those tiles stay manual/detect-only.
 
+## Self-update
+
+`src/main/update/updater.ts` turns electron-updater's seven events into one state machine (`unsupported | idle | checking | available | downloading | ready | error`) that the renderer can render directly, and takes the `UpdaterLike` interface it drives as an argument - the real `autoUpdater` reaches for the network, the packaging metadata and, on `quitAndInstall`, the process itself, none of which belongs in a test.
+
+`autoDownload` is off: pulling ~100 MB in the background on a metered connection isn't a decision to make for someone. `autoInstallOnAppQuit` is on, so consenting to the download is the last thing required - the "Restart now" button is a shortcut, not the only path.
+
+Nothing in the module throws. A machine that is offline at launch has to produce a quiet `error` status, not an unhandled rejection or a dialog, and `checkForUpdates()` rejects before emitting an `error` event in exactly that case - which is why both the promise and the event are handled.
+
+`unsupported` is a first-class state rather than an error, for the two cases that genuinely cannot update: a dev run (there is no installed app to replace) and macOS (Squirrel.Mac refuses anything not signed with a Developer ID certificate). Both say why, so the pane explains itself instead of offering a button that could only fail. Nothing is wired to the real updater in those cases - `check()` never touches the network.
+
+The check happens once, ten seconds after launch, and otherwise only on request. No polling loop: a desktop app left open for days can wait for the next launch. Progress is throttled through the same `src/main/util/throttle.ts` the mod installer uses.
+
+The renderer keeps its share in `src/renderer/src/lib/update.ts` (status → headline, detail, one action), which is what makes every state coverable without a DOM. `useUpdateStatus()` is deliberately safe to call from more than one component, unlike `useUiState`: it only reads, and main broadcasts each change to every window, so the banner and the About pane cannot disagree. Only `ready` earns the banner - an available or downloading update stays in Settings, where the user went looking for it.
+
 ## Theming
 
 One token set in `src/renderer/src/styles/tokens.css`: `:root` is the dark theme, `:root[data-theme='light']` overrides it. The light theme darkens accent/ok/warn/err rather than reusing the dark values, which fail contrast on white.

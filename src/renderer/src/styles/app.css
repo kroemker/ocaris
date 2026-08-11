@@ -1205,3 +1205,44 @@ code {
   margin-left: 5px;
   color: var(--accent);
 }
+
+/* ------------------------------------------------------------------ *
+ * Update section (About pane) and its banner
+ * ------------------------------------------------------------------ */
+
+/* An update is news, not a failure - the error banner's red would be wrong. */
+.banner.info {
+  color: var(--fg);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line));
+}
+
+.update-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 14px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.update-head {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.update-detail {
+  max-height: 8lh;
+  margin: 0;
+  overflow-y: auto;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--dim);
+  white-space: pre-wrap;
+}
+
+.update-box .prog {
+  width: 100%;
+}

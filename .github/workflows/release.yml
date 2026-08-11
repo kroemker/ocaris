@@ -1,0 +1,53 @@
+name: Release
+
+# Tag-triggered: `npm version minor` writes the tag, pushing it builds every
+# platform and uploads to one draft release. Merging to a branch deliberately
+# does not release - a README fix should not ship three installers.
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    strategy:
+      # One platform failing must not delete the artifacts the others already
+      # uploaded to the draft.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # The tag is the only thing that says what version this is, so a tag that
+      # disagrees with package.json would publish a manifest nobody can match.
+      - name: Verify the tag matches package.json
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match package.json version $pkg" >&2
+            exit 1
+          fi
+
+      - name: Build and publish
+        run: npm run release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # No Developer ID certificate yet, so macOS builds are unsigned.
+          # Without this, electron-builder hunts the keychain and fails the job
+          # rather than producing an unsigned artifact.
+          CSC_IDENTITY_AUTO_DISCOVERY: false

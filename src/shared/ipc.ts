@@ -78,6 +78,12 @@ export const IpcChannel = {
   ModSetPrefs: 'mod:set-prefs',
   /** main -> renderer, unlike every other channel here. */
   ModProgress: 'mod:progress',
+  UpdateGetStatus: 'update:get-status',
+  UpdateCheck: 'update:check',
+  UpdateDownload: 'update:download',
+  UpdateInstall: 'update:install',
+  /** main -> renderer, like mod:progress. */
+  UpdateStatus: 'update:status',
   StorageUsage: 'storage:usage',
   StorageOpenFolder: 'storage:open-folder',
   StorageSelectFolder: 'storage:select-folder',
@@ -234,6 +240,37 @@ export interface ModProgressEvent {
   modId: string
   downloadProgressBytes: number
   downloadTotalBytes: number | null
+}
+
+/**
+ * Where the app is in an update. One union for the renderer rather than the
+ * seven events electron-updater emits, because the UI only ever asks "what
+ * should this pane say and which button does it offer".
+ *
+ * 'unsupported' is its own state, not an error: a dev run and (for now) macOS
+ * genuinely cannot update, and saying so beats a button that fails.
+ */
+export type UpdateState =
+  | 'unsupported'
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'downloading'
+  | 'ready'
+  | 'error'
+
+export interface UpdateStatus {
+  state: UpdateState
+  /** The version this is about: the one available, downloading or ready. */
+  version: string | null
+  /** Release notes of that version, plain text, only once one is known. */
+  releaseNotes: string | null
+  /** 0-100 while downloading, null otherwise. */
+  percent: number | null
+  transferredBytes: number | null
+  totalBytes: number | null
+  /** Set for 'error', and for 'unsupported' where it explains why. */
+  message: string | null
 }
 
 export interface CatalogSourceResult {

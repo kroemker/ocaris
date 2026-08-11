@@ -25,7 +25,8 @@ import { refreshCatalog } from '../catalog/refresh'
 import type { CatalogMetadata } from '../catalog/types'
 import { classifyDownloadLink } from '../mods/resolvePatch'
 import { installMod } from '../mods/install'
-import { throttleProgress } from '../mods/throttleProgress'
+import { PROGRESS_EMIT_INTERVAL_MS, throttle } from '../util/throttle'
+import type { DownloadProgress } from '../download/downloadFile'
 
 function toModSummary(mod: ModWithStatus): ModSummary {
   const metadata = (mod.metadata ?? {}) as Partial<CatalogMetadata>
@@ -117,7 +118,7 @@ export function registerCatalogIpcHandlers(): void {
     // Registered so mod:cancel can abort this one download; installMod turns
     // the abort into a 'not_downloaded' status rather than an error.
     const controller = beginInstall(modId)
-    const emitProgress = throttleProgress((progress) => {
+    const emitProgress = throttle<DownloadProgress>((progress) => {
       // The window can be gone before a long download finishes.
       if (event.sender.isDestroyed()) return
       event.sender.send(IpcChannel.ModProgress, {
@@ -125,7 +126,7 @@ export function registerCatalogIpcHandlers(): void {
         downloadProgressBytes: progress.bytesDownloaded,
         downloadTotalBytes: progress.totalBytes
       } satisfies ModProgressEvent)
-    })
+    }, PROGRESS_EMIT_INTERVAL_MS)
 
     try {
       await installMod({

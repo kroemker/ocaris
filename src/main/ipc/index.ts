@@ -5,6 +5,7 @@ import { registerCatalogIpcHandlers } from './catalog'
 import { registerModIpcHandlers } from './mods'
 import { registerShellIpcHandlers } from './shell'
 import { registerStorageIpcHandlers } from './storage'
+import { registerUpdateIpcHandlers } from './update'
 
 export function registerIpcHandlers(): void {
   registerConfigIpcHandlers()
@@ -14,4 +15,5 @@ export function registerIpcHandlers(): void {
   registerModIpcHandlers()
   registerStorageIpcHandlers()
   registerShellIpcHandlers()
+  registerUpdateIpcHandlers()
 }
