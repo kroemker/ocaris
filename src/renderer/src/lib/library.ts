@@ -20,17 +20,13 @@ export const FILTERS: ReadonlyArray<{
   id: LibraryFilter
   label: string
   alert?: boolean
-  /** Chips that only appear once they have something in them, so an empty
-   *  "Hidden" doesn't advertise a feature nobody has used yet. */
-  onDemand?: boolean
 }> = [
   { id: 'all', label: 'All' },
   { id: 'favorites', label: 'Favorites' },
   { id: 'ready', label: 'Ready to play' },
   { id: 'downloading', label: 'Downloading' },
   { id: 'available', label: 'Not installed' },
-  { id: 'error', label: 'Needs attention', alert: true },
-  { id: 'hidden', label: 'Hidden', onDemand: true }
+  { id: 'error', label: 'Needs attention', alert: true }
 ]
 
 export const SORTS: ReadonlyArray<{ id: LibrarySort; label: string }> = [
@@ -54,17 +50,7 @@ export function matchesFilter(mod: ModSummary, filter: LibraryFilter): boolean {
       return mod.status.state === 'error'
     case 'favorites':
       return mod.prefs.favorite
-    case 'hidden':
-      return mod.prefs.hidden
   }
-}
-
-/**
- * Hiding a mod takes it out of every other view, which is the whole point -
- * the "Hidden" filter is the only way back to it.
- */
-function excludesHidden(filter: LibraryFilter): boolean {
-  return filter !== 'hidden'
 }
 
 /** A mod first seen this recently is worth pointing out in the row. */
@@ -143,12 +129,7 @@ export interface LibraryView {
 
 export function visibleMods(mods: readonly ModSummary[], view: LibraryView): ModSummary[] {
   return sortMods(
-    mods.filter(
-      (mod) =>
-        matchesFilter(mod, view.filter) &&
-        matchesQuery(mod, view.query) &&
-        !(mod.prefs.hidden && excludesHidden(view.filter))
-    ),
+    mods.filter((mod) => matchesFilter(mod, view.filter) && matchesQuery(mod, view.query)),
     view.sort
   )
 }
@@ -156,27 +137,22 @@ export function visibleMods(mods: readonly ModSummary[], view: LibraryView): Mod
 /**
  * Chip counts are computed against the search-filtered pool, so search and
  * filter compose: searching narrows every chip's count, not just the list.
- *
- * Hidden mods are left out of every count except their own chip's, which is
- * what makes that chip read as "and this many you put away".
  */
 export function countsByFilter(
   mods: readonly ModSummary[],
   query: string
 ): Record<LibraryFilter, number> {
   const pool = mods.filter((mod) => matchesQuery(mod, query))
-  const shown = pool.filter((mod) => !mod.prefs.hidden)
   const count = (filter: LibraryFilter): number =>
-    shown.filter((mod) => matchesFilter(mod, filter)).length
+    pool.filter((mod) => matchesFilter(mod, filter)).length
 
   return {
-    all: shown.length,
+    all: pool.length,
     favorites: count('favorites'),
     ready: count('ready'),
     downloading: count('downloading'),
     available: count('available'),
-    error: count('error'),
-    hidden: pool.filter((mod) => matchesFilter(mod, 'hidden')).length
+    error: count('error')
   }
 }
 
@@ -225,10 +201,9 @@ export type ModActionId =
   | 'remove'
   | 'reveal'
   | 'openPage'
-  // Row controls rather than state-dependent actions: these three are offered
+  // Row controls rather than state-dependent actions: these two are offered
   // whatever the mod's status is, so actionsFor() doesn't return them.
   | 'toggleFavorite'
-  | 'toggleHidden'
   | 'details'
 
 export interface ModAction {

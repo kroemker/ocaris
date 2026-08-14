@@ -14,8 +14,7 @@ const FILTERS: readonly LibraryFilter[] = [
   'downloading',
   'available',
   'error',
-  'favorites',
-  'hidden'
+  'favorites'
 ]
 const SORTS: readonly LibrarySort[] = ['name', 'author', 'status', 'recent']
 const PANES: readonly SettingsPane[] = [

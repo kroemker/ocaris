@@ -61,8 +61,10 @@ describe('normalizeUiState', () => {
       settingsPane: 'appearance'
     }
     expect(normalizeUiState(state)).toEqual(state)
+  })
 
-    expect(normalizeUiState({ library: { filter: 'hidden' } }).library.filter).toBe('hidden')
+  it('falls back for a filter that no longer exists', () => {
+    expect(normalizeUiState({ library: { filter: 'hidden' } }).library.filter).toBe('all')
   })
 
   it('ignores unknown keys', () => {

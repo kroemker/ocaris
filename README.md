@@ -12,7 +12,7 @@ Ocaris never distributes or bundles a ROM. You point it at a copy you already ow
 - **Emulator setup** — curated registry of common N64 emulators (Project64, RetroArch, simple64, Rosalie's Mupen GUI, ares) with scan-for-installed, auto-install from GitHub releases where available, and fully custom entries.
 - **ROM verification** — checks the N64 header CRC1/CRC2 against known-good OoT 1.0 (U) values; a mismatch warns rather than blocks.
 - **Library view** — search, state filters, sorting (including recently added), live download progress, cancel and remove.
-- **Per-mod choices** — favorite, hide, and pick the emulator a given mod launches with; a details view for the full description, sources and paths.
+- **Per-mod choices** — favorite a mod with the star beside its name, and pick the emulator it launches with; a details view for the full description, sources and paths.
 - **Themes** — dark/light/system, applied to the window chrome as well as the UI.
 
 ## Requirements

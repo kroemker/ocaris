@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import ModThumbnail from './ModThumbnail'
 import PlayButton from './PlayButton'
+import FavoriteButton from './FavoriteButton'
 import {
   actionsFor,
   formatDate,
@@ -82,6 +83,11 @@ function ModDetailsBody({
   return (
     <div className="details-inner">
       <div className="modal-h">
+        <FavoriteButton
+          favorite={mod.prefs.favorite}
+          size="lg"
+          onToggle={() => onAction('toggleFavorite', mod)}
+        />
         <h2 className="clip">{mod.name}</h2>
         <div className="spacer" />
         <button className="btn icon ghost" onClick={onClose} aria-label="Close details">
@@ -150,21 +156,6 @@ function ModDetailsBody({
       </div>
 
       <div className="modal-f">
-        <button
-          className={`btn${mod.prefs.favorite ? ' on' : ''}`}
-          aria-pressed={mod.prefs.favorite}
-          onClick={() => onAction('toggleFavorite', mod)}
-        >
-          {mod.prefs.favorite ? '★ Favorited' : '☆ Favorite'}
-        </button>
-        <button
-          className="btn"
-          aria-pressed={mod.prefs.hidden}
-          onClick={() => onAction('toggleHidden', mod)}
-        >
-          {mod.prefs.hidden ? 'Unhide' : 'Hide'}
-        </button>
-
         <div className="spacer" />
 
         {pageLink(mod) && !actions.some((action) => action.id === 'openPage') && (

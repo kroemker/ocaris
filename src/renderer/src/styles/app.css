@@ -1034,40 +1034,65 @@ code {
 }
 
 /* ------------------------------------------------------------------ *
- * Row marks — favourite and hide, offered in every state
+ * Favourite star — offered in every state, next to the mod's name
  * ------------------------------------------------------------------ */
 
-.marks {
-  display: flex;
+.fav {
+  display: grid;
   flex: none;
-  flex-direction: column;
-  gap: 4px;
-  align-items: center;
-  justify-content: center;
+  place-items: center;
+  padding: 0;
+  color: var(--dim);
+  cursor: pointer;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  /* An outline star is quiet until it's hovered or filled, so it doesn't
+     compete with the title it sits beside. */
+  opacity: 0.55;
+  transition:
+    color 0.12s ease,
+    opacity 0.12s ease;
 }
 
-/* Quiet until the row is hovered or one of them is focused, so two more
-   buttons per row don't compete with the action rail. */
-.marks .btn {
-  opacity: 0.35;
-  transition: opacity 0.12s ease;
+.fav svg {
+  width: 100%;
+  height: 100%;
 }
 
-.row:hover .marks .btn,
-.marks .btn:focus-visible,
-.marks .btn[aria-pressed='true'] {
+.fav.md {
+  width: 22px;
+  height: 22px;
+}
+
+.fav.lg {
+  width: 28px;
+  height: 28px;
+}
+
+.fav:hover,
+.fav:focus-visible {
+  color: var(--accent);
   opacity: 1;
 }
 
-.btn.on,
-.marks .btn[aria-pressed='true'] {
+.fav.on {
   color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  opacity: 1;
 }
 
-/* A hidden mod is only ever shown by its own filter; it reads as put away. */
-.row.is-hidden-mod {
-  opacity: 0.6;
+.fav:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.modal-h .fav {
+  margin-right: 10px;
+}
+
+.btn.on {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
 }
 
 .thumb-button {

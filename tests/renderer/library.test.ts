@@ -101,29 +101,8 @@ describe('visibleMods', () => {
     expect(result.map((m) => m.id)).toEqual(['c'])
   })
 
-  it('keeps hidden mods out of every filter except their own', () => {
-    const catalog = [
-      mod({ id: 'shown', name: 'Shown' }),
-      mod({ id: 'put-away', name: 'Put away', prefs: { hidden: true } })
-    ]
-
-    expect(
-      visibleMods(catalog, { filter: 'all', query: '', sort: 'name' }).map((m) => m.id)
-    ).toEqual(['shown'])
-    expect(
-      visibleMods(catalog, { filter: 'available', query: '', sort: 'name' }).map((m) => m.id)
-    ).toEqual(['shown'])
-    expect(
-      visibleMods(catalog, { filter: 'hidden', query: '', sort: 'name' }).map((m) => m.id)
-    ).toEqual(['put-away'])
-  })
-
-  it('shows only favorites under the favorites filter, hidden ones excluded', () => {
-    const catalog = [
-      mod({ id: 'fav', prefs: { favorite: true } }),
-      mod({ id: 'fav-hidden', prefs: { favorite: true, hidden: true } }),
-      mod({ id: 'plain' })
-    ]
+  it('shows only favorites under the favorites filter', () => {
+    const catalog = [mod({ id: 'fav', prefs: { favorite: true } }), mod({ id: 'plain' })]
 
     expect(
       visibleMods(catalog, { filter: 'favorites', query: '', sort: 'name' }).map((m) => m.id)
@@ -205,8 +184,7 @@ describe('countsByFilter', () => {
       ready: 1,
       downloading: 0,
       available: 2,
-      error: 1,
-      hidden: 0
+      error: 1
     })
   })
 
@@ -217,15 +195,13 @@ describe('countsByFilter', () => {
       ready: 1,
       downloading: 0,
       available: 1,
-      error: 0,
-      hidden: 0
+      error: 0
     })
   })
 
-  it('leaves hidden mods out of every count but their own', () => {
+  it('counts favorites alongside the states', () => {
     const catalog = [
       mod({ id: 'shown', status: { state: 'ready' } }),
-      mod({ id: 'put-away', status: { state: 'ready' }, prefs: { hidden: true } }),
       mod({ id: 'fav', prefs: { favorite: true } })
     ]
 
@@ -235,8 +211,7 @@ describe('countsByFilter', () => {
       ready: 1,
       downloading: 0,
       available: 1,
-      error: 0,
-      hidden: 1
+      error: 0
     })
   })
 })

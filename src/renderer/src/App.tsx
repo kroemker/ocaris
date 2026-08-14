@@ -174,10 +174,6 @@ function App(): React.JSX.Element {
           await window.api.mod.setPrefs(mod.id, { favorite: !mod.prefs.favorite })
           break
 
-        case 'toggleHidden':
-          await window.api.mod.setPrefs(mod.id, { hidden: !mod.prefs.hidden })
-          break
-
         case 'remove':
           await window.api.mod.remove(mod.id)
           break

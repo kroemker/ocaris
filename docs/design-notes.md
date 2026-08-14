@@ -57,11 +57,11 @@ Downloads are uncapped: several mods can install at once, and `mod:cancel` abort
 
 ## Per-mod preferences
 
-Favourites, hidden mods and a per-mod emulator live in their own `mod_prefs` table rather than in more `mod_status` columns, because `mod:remove` resets a status row wholesale and none of those three should die with the patched ROM. Rows are written lazily - a catalog of 137 mods nobody has touched stores nothing - so every read is a `LEFT JOIN` with a fallback to `DEFAULT_MOD_PREFS`.
+Favourites and a per-mod emulator live in their own `mod_prefs` table rather than in more `mod_status` columns, because `mod:remove` resets a status row wholesale and neither should die with the patched ROM. Rows are written lazily - a catalog of 137 mods nobody has touched stores nothing - so every read is a `LEFT JOIN` with a fallback to `DEFAULT_MOD_PREFS`.
 
 `mod_prefs.emulator_id` is a real foreign key with `ON DELETE SET NULL`, so deleting an emulator clears the mods that pointed at it instead of leaving dangling ids. The renderer doesn't rely on that alone: `emulatorForMod()` falls back to the global default for an id it can't resolve, since the alternative is a row that won't play until the user finds a setting they don't remember making. Picking an emulator from the Play menu is also what sets the override - there's no separate "remember this" step - and the menu tags it `this mod` to distinguish it from the app-wide `default`.
 
-Hiding is a stronger statement than favouriting: a hidden mod drops out of every filter and every chip count except the "Hidden" chip, which is itself only drawn once something is in it.
+Favouriting is a star beside the mod's name, in the row and in the details dialog's header - one control, in the same place, whatever state the mod is in. Hiding was dropped: it was a second way to put a mod away that only paid off for a library far larger than this one. `mod_prefs.hidden` survives as a column so old rows still read back, but nothing writes or reads it, and the "Hidden" filter is gone - a stored `filter: 'hidden'` normalizes back to `all`.
 
 ## Mod details dialog
 

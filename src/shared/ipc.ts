@@ -15,8 +15,7 @@ export type ThemeSource = 'system' | 'light' | 'dark'
  * View state the library list is driven by. Lives in the shared contract
  * rather than the renderer because main validates it before storing it.
  */
-export type LibraryFilter =
-  'all' | 'ready' | 'downloading' | 'available' | 'error' | 'favorites' | 'hidden'
+export type LibraryFilter = 'all' | 'ready' | 'downloading' | 'available' | 'error' | 'favorites'
 
 export type LibrarySort = 'name' | 'author' | 'status' | 'recent'
 
@@ -191,6 +190,8 @@ export interface ModStatusSummary {
  */
 export interface ModPrefs {
   favorite: boolean
+  /** Legacy: the library no longer offers a way to hide a mod, but the column
+   *  outlives the feature so older rows still read back. */
   hidden: boolean
   /** Emulator to launch this mod with, overriding the global default. Null
    *  means "whatever the default is", which is also what a deleted emulator
