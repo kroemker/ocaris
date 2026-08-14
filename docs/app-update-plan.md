@@ -16,7 +16,7 @@ Three platform truths that decide how much of this is worth building:
 
 ## WP-U1 — Publishing pipeline — **done**
 
-Answered while implementing it: `kroemker/ocaris` is **public**, so an updater can fetch release assets without a token and self-update is viable. The repo's default branch on GitHub is `dev`, with `main` also present - which branch a release is cut from is a decision WP-U4 needs.
+Answered while implementing it: `kroemker/ocaris` is **public**, so an updater can fetch release assets without a token and self-update is viable. The repository has since collapsed to a single trunk, `main`; releases are cut from a `v*` tag on it, so no branch merge is part of shipping.
 
 Landed: the `publish` block (draft releases), `zip` alongside `dmg` for macOS, and `npm run release`. Verified by building the Windows installer locally: electron-builder wrote `release/latest.yml` with the version, size and sha512 the updater checks a download against. The version bump itself is deliberately not done yet - `npm version minor` does it at release time, so `package.json` and the tag cannot drift.
 
